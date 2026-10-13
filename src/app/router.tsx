@@ -17,6 +17,9 @@ const Dashboard = lazy(() => import("../features/dashboard/Dashboard")),
   Insights = lazy(() => import("../features/analytics/Insights")),
   Search = lazy(() => import("../features/search/Search")),
   ResourceSettings = lazy(() => import("../features/resources/Settings"));
+const GigsList = lazy(() => import("../features/gigs/List")),
+  GigEditor = lazy(() => import("../features/gigs/Editor")),
+  GigCategories = lazy(() => import("../features/gigs/Categories"));
 function Guard({ area }: { area?: string }) {
   const s = useSession();
   if (s.state === "booting") return <Loading />;
@@ -67,6 +70,22 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: "dashboard", element: <Dashboard /> },
+          {
+            element: <Guard area="gigs" />,
+            children: [
+              { path: "gigs", element: <GigsList /> },
+              { path: "gigs/new", element: <GigEditor /> },
+              { path: "gigs/:id", element: <GigEditor /> },
+            ],
+          },
+          {
+            element: <Guard area="gigs-admin" />,
+            children: [
+              { path: "reviews/gigs", element: <GigsList admin /> },
+              { path: "reviews/gigs/:id", element: <GigEditor admin /> },
+              { path: "gig-categories", element: <GigCategories /> },
+            ],
+          },
           ...kinds.map((kind) => ({
             element: <Guard area={kind} />,
             children: [

@@ -80,7 +80,10 @@ export const contentFields: Record<string, Field[]> = {
       "formula",
     ]),
     f("content", "textarea"),
-    f("media_url", "url"),
+    {
+      ...f("media_url", "url"),
+      help: "Paste a media URL, including YouTube watch, share or embed URLs. Paste the URL rather than iframe code.",
+    },
     f("media_metadata", "json"),
     f("is_published", "boolean"),
   ],
@@ -96,7 +99,7 @@ export const contentFields: Record<string, Field[]> = {
     { ...f("options", "array"), help: "One option per line." },
     {
       ...f("correct_answer", "array", true),
-      help: "One accepted answer per line. Blank/tap learner conventions need verification.",
+      help: "One answer per line. Blank and tap-fill answers are stored in blank order.",
     },
     f("explanation", "textarea"),
     f("image_url", "url"),

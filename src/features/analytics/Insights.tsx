@@ -1,7 +1,7 @@
 import { useState, lazy, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useParams } from "react-router-dom";
-import { request, page, str, object, rows } from "../../shared/api/client";
+import { request, page, str, object } from "../../shared/api/client";
 import { useSession } from "../../shared/auth/session";
 import {
   DataView,
@@ -11,7 +11,7 @@ import {
 } from "../../shared/ui/primitives";
 import { SchemaForm } from "../../shared/forms/SchemaForm";
 import { f } from "../courses/fields";
-const RevenueChart = lazy(() => import("./RevenueChart"));
+const AnalyticsCharts = lazy(() => import("./AnalyticsCharts"));
 export default function Insights({ view = "dashboard" }: { view?: string }) {
   const { id } = useParams();
   const role = useSession((s) => s.user!.role.name),
@@ -85,6 +85,15 @@ export default function Insights({ view = "dashboard" }: { view?: string }) {
           </label>
         </div>
       )}
+      {!q.isPending && !q.isError && view !== "reports" && (
+        <Suspense fallback={<Loading />}>
+          <AnalyticsCharts
+            data={object(q.data.data)}
+            view={effective}
+            admin={admin}
+          />
+        </Suspense>
+      )}
       <div className="panel">
         {q.isPending ? (
           <Loading />
@@ -134,13 +143,6 @@ export default function Insights({ view = "dashboard" }: { view?: string }) {
           <DataView value={q.data.data} />
         )}
       </div>
-      {admin && effective === "dashboard" && q.data && (
-        <Suspense fallback={<Loading />}>
-          <RevenueChart
-            data={rows(object(object(q.data.data).trends).revenue_trend)}
-          />
-        </Suspense>
-      )}
       {view === "reports" && role !== "moderator" && (
         <div className="panel">
           <h2>Generate report</h2>

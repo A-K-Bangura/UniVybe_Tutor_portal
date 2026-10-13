@@ -20,6 +20,8 @@ import {
   UserRound,
   Settings,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useSession, can } from "../shared/auth/session";
 import { queryClient } from "./query-client";
@@ -28,11 +30,14 @@ import wordmark from "../assets/logo-word-black.webp";
 import whiteWordmark from "../assets/logo-word-white.webp";
 import { ThemeToggle } from "../shared/ui/ThemeToggle";
 import { useAppearance } from "../shared/lib/appearance";
+import { BackNavigation } from "../shared/ui/BackNavigation";
 const destinations = [
   ["dashboard", "Overview", LayoutDashboard],
   ["courses", "Courses", BookOpen],
   ["resources", "Resource library", Files],
   ["opportunities", "Opportunities", Briefcase],
+  ["gigs", "My gigs", Briefcase],
+  ["gigs-admin", "Gig reviews", ShieldCheck],
   ["feed", "Community feed", MessageSquare],
   ["reviews", "Review queues", ShieldCheck],
   ["roadmaps", "Roadmaps", Route],
@@ -50,12 +55,24 @@ export function Shell() {
     clear = useSession((s) => s.clear),
     [open, setOpen] = useState(false),
     [logoutMessage, setLogoutMessage] = useState("");
+  const [sidebarClosed, setSidebarClosed] = useState(
+    () => localStorage.getItem("univybe.sidebarClosed") === "true",
+  );
+  const toggleSidebar = () =>
+    setSidebarClosed((closed) => {
+      localStorage.setItem("univybe.sidebarClosed", String(!closed));
+      return !closed;
+    });
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarClosed ? "sidebar-closed" : ""}`}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <aside className={`sidebar ${open ? "mobile-open" : ""}`}>
+      <aside
+        id="workspace-navigation"
+        aria-label="Workspace navigation"
+        className={`sidebar ${open ? "mobile-open" : ""}`}
+      >
         <div className="brand">
           <Link to="/dashboard">
             <img
@@ -83,9 +100,11 @@ export function Shell() {
                 to={
                   area === "reviews"
                     ? "/reviews/courses"
-                    : area === "coins"
-                      ? "/coins/exchanges"
-                      : `/${area}`
+                    : area === "gigs-admin"
+                      ? "/reviews/gigs"
+                      : area === "coins"
+                        ? "/coins/exchanges"
+                        : `/${area}`
                 }
                 onClick={() => setOpen(false)}
               >
@@ -104,6 +123,8 @@ export function Shell() {
                 "reviews/feed",
                 "reviews/resources",
                 "reviews/opportunities",
+                "reviews/gigs",
+                "gig-categories",
                 "faculties",
                 "departments",
                 "resources/access-settings",
@@ -157,8 +178,23 @@ export function Shell() {
         <header className="topbar">
           <ThemeToggle />
           <button
+            className="desktop-only"
+            aria-label={sidebarClosed ? "Open sidebar" : "Close sidebar"}
+            aria-expanded={!sidebarClosed}
+            aria-controls="workspace-navigation"
+            onClick={toggleSidebar}
+          >
+            {sidebarClosed ? (
+              <PanelLeftOpen size={20} />
+            ) : (
+              <PanelLeftClose size={20} />
+            )}
+          </button>
+          <button
             className="mobile-only"
             aria-label="Open navigation"
+            aria-expanded={open}
+            aria-controls="workspace-navigation"
             onClick={() => setOpen(true)}
           >
             <Menu size={22} />
@@ -167,7 +203,11 @@ export function Shell() {
             Workspace <span>/</span> {user.role.name}
           </span>
           {can(user.role.name, "search") && (
-            <Link className="topbar-search" to="/search">
+            <Link
+              className="topbar-search"
+              to="/search"
+              aria-label="Search workspace"
+            >
               <Search size={17} />
               <span>Search workspace</span>
               <kbd>⌕</kbd>
@@ -184,6 +224,7 @@ export function Shell() {
           </Link>
         </header>
         <main id="main">
+          <BackNavigation />
           <Outlet />
         </main>
         <footer>UniVybe · A workspace for possibility.</footer>

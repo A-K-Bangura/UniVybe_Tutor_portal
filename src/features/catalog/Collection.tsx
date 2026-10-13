@@ -42,6 +42,13 @@ const icons: Record<string, typeof BookOpen> = {
   opportunities: Briefcase,
   feed: MessageSquare,
 };
+const pendingStatuses: Record<string, string> = {
+  courses: "pending_approval",
+  resources: "pending_approval",
+  opportunities: "pending_approval",
+  feed: "pending",
+  users: "pending",
+};
 export default function Collection({
   kind,
   review = false,
@@ -54,14 +61,22 @@ export default function Collection({
     [selection, setSelection] = useState<number[]>([]),
     [bulk, setBulk] = useState<string>();
   const p = new URLSearchParams(params);
+  const status =
+    params.get("status") ??
+    (role === "admin" ? pendingStatuses[kind] || "" : "");
+  if (status) p.set("status", status);
+  else p.delete("status");
   p.set("per_page", "15");
+  const hasFilters = [...p].some(
+    ([key, value]) => !["page", "per_page"].includes(key) && !!value,
+  );
   const q = useQuery({
     queryKey: ["collection", kind, role, p.toString()],
     queryFn: ({ signal }) => list(kind, role, p, signal),
   });
   const set = (key: string, value: string) => {
     const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
+    if (value || key === "status") next.set(key, value);
     else next.delete(key);
     if (key !== "page") next.delete("page");
     setParams(next);
@@ -99,7 +114,7 @@ export default function Collection({
         {statuses[kind] && (
           <select
             aria-label="Filter by status"
-            value={params.get("status") || ""}
+            value={status}
             onChange={(e) => set("status", e.target.value)}
           >
             <option value="">All statuses</option>
@@ -110,7 +125,9 @@ export default function Collection({
             ))}
           </select>
         )}
-        <button onClick={() => setParams({})}>Clear filters</button>
+        <button onClick={() => setParams(statuses[kind] ? { status: "" } : {})}>
+          Clear filters
+        </button>
       </div>
       {q.isPending ? (
         <Loading />
@@ -121,9 +138,9 @@ export default function Collection({
           {!q.data.items.length ? (
             <div className="empty">
               <Icon size={36} />
-              <h2>{params.size ? "No matching records" : "A fresh start"}</h2>
+              <h2>{hasFilters ? "No matching records" : "A fresh start"}</h2>
               <p>
-                {params.size
+                {hasFilters
                   ? "Try another search or clear your filters."
                   : `Your ${kind} will appear here when they are created.`}
               </p>

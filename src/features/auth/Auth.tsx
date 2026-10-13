@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { request, object, rows, str, problem } from "../../shared/api/client";
 import { useSession } from "../../shared/auth/session";
 import { SchemaForm } from "../../shared/forms/SchemaForm";
@@ -191,22 +191,43 @@ export function Auth({ signup = false }: { signup?: boolean }) {
 }
 export function AccountStatus() {
   const session = useSession();
+  const cache = useQueryClient();
+  if (session.state === "ready") return <Navigate to="/dashboard" replace />;
+  if (session.state === "anonymous") return <Navigate to="/login" replace />;
+  if (session.state === "onboarding")
+    return <Navigate to="/onboarding" replace />;
   return (
     <div className="center-state">
       <img src={wordmark} alt="UniVybe" className="wordmark" />
       <h1>
         {session.state === "unavailable"
           ? "Your session needs a connection"
-          : `Account ${session.user?.status || "pending"}`}
+          : session.state === "booting"
+            ? "Checking your session…"
+            : `Account ${session.user?.status || "pending"}`}
       </h1>
       <p>
-        {session.error ||
-          "Your account is not yet eligible for the workspace. Complete review or contact your administrator."}
+        {session.state === "booting"
+          ? "Checking your connection and account access."
+          : session.error ||
+            "Your account is not yet eligible for the workspace. Complete review or contact your administrator."}
       </p>
-      <button className="primary" onClick={() => void session.bootstrap()}>
-        Check account state
+      <button
+        className="primary"
+        disabled={session.state === "booting"}
+        onClick={() => void session.bootstrap()}
+      >
+        {session.state === "booting" ? "Checking…" : "Check account state"}
       </button>
-      <button onClick={session.clear}>Sign out locally</button>
+      <button
+        onClick={async () => {
+          await cache.cancelQueries();
+          cache.clear();
+          session.clear();
+        }}
+      >
+        Sign out locally
+      </button>
     </div>
   );
 }
@@ -234,6 +255,11 @@ export function Onboarding() {
         ]
       : []),
   ];
+  if (session.state === "booting") return <Loading />;
+  if (session.state === "anonymous") return <Navigate to="/login" replace />;
+  if (session.state === "ready") return <Navigate to="/dashboard" replace />;
+  if (session.state === "restricted" || session.state === "unavailable")
+    return <Navigate to="/account-status" replace />;
   return (
     <div className="onboarding panel">
       <h1>Make yourself at home</h1>

@@ -19,11 +19,23 @@ export default function Coins({ view }: { view: string }) {
     cache = useQueryClient(),
     [action, setAction] = useState<string>();
   const endpoint = view === "ledger" ? "transactions" : view;
+  const status =
+    params.get("status") ?? (view === "exchanges" && !id ? "pending" : "");
+  const apiParams = new URLSearchParams(params);
+  if (status) apiParams.set("status", status);
+  else apiParams.delete("status");
+  const setFilter = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value || key === "status") next.set(key, value);
+    else next.delete(key);
+    next.delete("page");
+    setParams(next);
+  };
   const q = useQuery({
-    queryKey: ["coins", endpoint, id, params.toString()],
+    queryKey: ["coins", endpoint, id, apiParams.toString()],
     queryFn: async ({ signal }) => {
       const response = await request(
-        `admin/coins/${endpoint}${id ? `/${id}` : ""}?${params}`,
+        `admin/coins/${endpoint}${id ? `/${id}` : ""}?${apiParams}`,
         "GET",
         undefined,
         signal,
@@ -129,14 +141,14 @@ export default function Coins({ view }: { view: string }) {
                 aria-label="Student ID or UUID"
                 placeholder="Student ID or UUID"
                 value={params.get("student_id") || ""}
-                onChange={(e) => setParams({ student_id: e.target.value })}
+                onChange={(e) => setFilter("student_id", e.target.value)}
               />
               {view === "exchanges" && (
                 <>
                   <select
                     aria-label="Exchange status"
-                    value={params.get("status") || ""}
-                    onChange={(e) => setParams({ status: e.target.value })}
+                    value={status}
+                    onChange={(e) => setFilter("status", e.target.value)}
                   >
                     <option value="">All statuses</option>
                     {[

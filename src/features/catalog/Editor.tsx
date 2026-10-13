@@ -1,5 +1,6 @@
 import { Comments } from "../feed/Comments";
 import { OpportunityPreview } from "../opportunities/Preview";
+import { FeedPreview } from "../feed/Preview";
 import { useState, useRef } from "react";
 import type { PendingSequence } from "../resources/Attachments";
 import { useNavigate, useParams } from "react-router-dom";
@@ -33,6 +34,7 @@ import { uploadResource, uploadMedia } from "../../shared/uploads/workflows";
 import { Decision } from "../reviews/Decision";
 import { CourseBuilder } from "../course-builder/Builder";
 import { RoadmapSequence } from "../roadmaps/Sequence";
+import { CoursePicker } from "../roadmaps/CoursePicker";
 const fieldMap: Record<string, Field[]> = {
   courses: courseFields,
   resources: resourceFields,
@@ -71,6 +73,7 @@ export default function Editor({ kind }: { kind: string }) {
     [actionRows, setActionRows] = useState<RecordData[] | undefined>(),
     [preview, setPreview] = useState(false);
   const [sequenceDirty, setSequenceDirty] = useState(false);
+  const [initialCourses, setInitialCourses] = useState<RecordData[]>([]);
   const sequence = useRef<PendingSequence>(null);
   if (id && q.isPending) return <Loading />;
   if (q.isError)
@@ -243,6 +246,7 @@ export default function Editor({ kind }: { kind: string }) {
             This record is locked for editing under its current permissions.
           </p>
           <DataView value={data} />
+          {kind === "feed" && <FeedPreview data={data} />}
         </div>
       ) : (
         <div className="panel">
@@ -375,15 +379,24 @@ export default function Editor({ kind }: { kind: string }) {
             </>
           )}
           <SchemaForm
+            preview={
+              kind === "feed"
+                ? (values) => <FeedPreview data={values} />
+                : undefined
+            }
             externalDirty={
               actionRows !== undefined ||
               cover !== undefined ||
               clearedDeadline ||
               sequenceDirty ||
+              initialCourses.length > 0 ||
               !!file
             }
             key={id || "new"}
-            onDiscard={() => sequence.current?.discard()}
+            onDiscard={() => {
+              sequence.current?.discard();
+              setInitialCourses([]);
+            }}
             fields={fields.filter(
               (x) => !(kind === "opportunities" && x.name === "actions"),
             )}
@@ -403,6 +416,10 @@ export default function Editor({ kind }: { kind: string }) {
                 : undefined
             }
             submit={async (values) => {
+              if (kind === "roadmaps" && isNew)
+                values.courses = initialCourses.map((course) =>
+                  Number(course.id),
+                );
               if (kind === "resources" && isNew) {
                 values.source_type = source;
                 if (source === "file") {
@@ -437,6 +454,7 @@ export default function Editor({ kind }: { kind: string }) {
                   delete values.application_deadline;
               }
               const result = object(await save(kind, values, id));
+              setInitialCourses([]);
               if (kind === "roadmaps") await sequence.current?.save();
               setStage("Saved and confirmed");
               setActionRows(undefined);
@@ -458,6 +476,14 @@ export default function Editor({ kind }: { kind: string }) {
           saveRef={sequence}
         />
       )}{" "}
+      {kind === "roadmaps" && isNew && (
+        <div className="panel">
+          <CoursePicker
+            selected={initialCourses}
+            onChange={setInitialCourses}
+          />
+        </div>
+      )}
       {kind === "feed" && !isNew && role === "admin" && (
         <Comments comments={rows(data.comments)} />
       )}{" "}

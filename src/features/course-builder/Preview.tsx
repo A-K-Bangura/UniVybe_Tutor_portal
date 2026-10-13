@@ -10,6 +10,7 @@ import {
   type RecordData,
 } from "../../shared/api/client";
 import { Loading, ErrorPanel } from "../../shared/ui/primitives";
+import { MediaPreview, LinkPreviews } from "../../shared/media/MediaPreview";
 export function Block({ data }: { data: RecordData }) {
   if (data.content_type === "text") {
     if (data.text_type === "formula") {
@@ -37,32 +38,54 @@ export function Block({ data }: { data: RecordData }) {
             : ""}
         </small>
         <p className="prewrap">{str(data.content)}</p>
+        <LinkPreviews content={str(data.content)} />
       </div>
     );
   }
-  const url = str(data.media_url);
-  let parsed: URL;
+  let metadata = object(data.media_metadata);
   try {
-    parsed = new URL(url);
-    if (!["https:", "http:"].includes(parsed.protocol)) return null;
+    if (typeof data.media_metadata === "string")
+      metadata = object(JSON.parse(data.media_metadata));
   } catch {
-    return <p>Media URL unavailable</p>;
+    /* Keep incomplete metadata edits out of the preview. */
   }
-  if (data.content_type === "image")
-    return (
-      <img
-        className="preview-image"
-        src={url}
-        alt={str(object(data.media_metadata).caption) || "Lesson illustration"}
-      />
-    );
-  if (data.content_type === "video" && /\.(mp4|webm)(\?|$)/.test(url))
-    return <video controls src={url} className="preview-image" />;
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer">
-      Open {str(data.content_type)} ↗
-    </a>
+    <MediaPreview
+      url={str(data.media_url)}
+      kind={str(data.content_type)}
+      caption={str(metadata.caption)}
+    />
   );
+}
+export function CourseDetailsPreview({ data }: { data: RecordData }) {
+  return (
+    <section aria-label="Course details preview">
+      {str(data.title) && <h3>{str(data.title)}</h3>}
+      {str(data.thumbnail_url) && (
+        <MediaPreview
+          url={str(data.thumbnail_url)}
+          kind="image"
+          caption="Course cover"
+        />
+      )}
+      {str(data.description) && (
+        <p className="prewrap">{str(data.description)}</p>
+      )}
+      <LinkPreviews
+        content={str(data.description)}
+        exclude={[str(data.thumbnail_url)]}
+      />
+    </section>
+  );
+}
+export function QuizMediaPreview({ data }: { data: RecordData }) {
+  return str(data.image_url) ? (
+    <MediaPreview
+      url={str(data.image_url)}
+      kind="image"
+      caption={str(data.question) || "Quiz illustration"}
+    />
+  ) : null;
 }
 async function loadTree(course: RecordData) {
   const modules = rows(
@@ -104,6 +127,7 @@ export function ContentPreview({ course }: { course: RecordData }) {
     });
   return (
     <>
+      <CourseDetailsPreview data={course} />
       {q.isPending ? (
         <Loading />
       ) : q.isError ? (
@@ -134,7 +158,8 @@ export function ContentPreview({ course }: { course: RecordData }) {
                   ))}
                   {rows(lesson.quizzes).map((quiz) => (
                     <div className="quiz-preview" key={str(quiz.id)}>
-                      <strong>{str(quiz.question)}</strong>
+                      <strong className="prewrap">{str(quiz.question)}</strong>
+                      <QuizMediaPreview data={quiz} />
                       {quiz.quiz_type !== "mcq" && (
                         <label>
                           Answer preview

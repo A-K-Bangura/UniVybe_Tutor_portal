@@ -17,6 +17,7 @@ import {
   ErrorPanel,
   Modal,
 } from "../../shared/ui/primitives";
+import { QuizForm } from "./QuizForm";
 import { SchemaForm } from "../../shared/forms/SchemaForm";
 import {
   contentFields,
@@ -26,8 +27,14 @@ import {
 import { Decision } from "../reviews/Decision";
 import { useSession } from "../../shared/auth/session";
 import { save } from "../catalog/service";
-import { ContentPreview, Block } from "./Preview";
+import {
+  ContentPreview,
+  Block,
+  CourseDetailsPreview,
+  QuizMediaPreview,
+} from "./Preview";
 import { Attachments, type PendingSequence } from "../resources/Attachments";
+import { ResizableBuilder } from "./ResizableBuilder";
 interface Node {
   kind: string;
   data: RecordData;
@@ -113,6 +120,31 @@ export function CourseBuilder({
       setBusy(false);
     }
   };
+  const saveNode = async (values: RecordData) => {
+    let saved: RecordData;
+    if (node.kind === "courses")
+      saved = object(await save("courses", values, id));
+    else
+      saved = entity(
+        await request(
+          `tutor/content/${node.kind}${node.data.id ? `/${str(node.data.id)}` : ""}`,
+          node.data.id ? "PUT" : "POST",
+          {
+            ...values,
+            [parents[node.kind]]: node.parentId,
+            order_index: node.order,
+          },
+        ),
+        keys[node.kind],
+      );
+    await cache.invalidateQueries();
+    if (node.kind === "courses") await attachments.current?.save();
+    setDirty(false);
+    if (pending) {
+      setNode(pending);
+      setPending(undefined);
+    } else setNode({ ...node, data: { ...node.data, ...saved } });
+  };
   return (
     <>
       <Header
@@ -153,20 +185,32 @@ export function CourseBuilder({
           retry={() => void cache.invalidateQueries()}
         />
       )}
-      <div className="builder">
-        <aside className="course-outline panel">
-          <h2>Course outline</h2>
-          <button
-            className="outline-node"
-            onClick={() =>
-              select({ kind: "courses", data: course, parentId: 0, order: 0 })
-            }
+      <ResizableBuilder
+        outline={
+          <aside
+            className="course-outline panel custom-scroll"
+            tabIndex={0}
+            aria-label="Scrollable course outline"
           >
-            Course details
-          </button>
-          <Branch kind="courses" data={course} select={select} />
-        </aside>
-        <div className="panel editor-panel">
+            <h2>Course outline</h2>
+            <button
+              className="outline-node"
+              onClick={() =>
+                select({ kind: "courses", data: course, parentId: 0, order: 0 })
+              }
+            >
+              Course details
+            </button>
+            <Branch kind="courses" data={course} select={select} />
+          </aside>
+        }
+      >
+        <div
+          className="panel editor-panel custom-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label="Scrollable content editor"
+        >
           <div className="editor-heading">
             <div>
               <span className="eyebrow">{node.kind.replaceAll("-", " ")}</span>
@@ -184,62 +228,68 @@ export function CourseBuilder({
               </button>
             )}
           </div>
-          <SchemaForm
-            preview={
-              node.kind === "mini-lesson-blocks"
-                ? (values) => <Block data={values} />
-                : undefined
-            }
-            key={`${node.kind}-${str(node.data.id) || "new"}-${node.parentId}`}
-            fields={
-              node.kind === "courses" ? courseFields : contentFields[node.kind]
-            }
-            initial={node.data}
-            onDirty={setDirty}
-            externalDirty={attachmentsDirty}
-            onDiscard={() => attachments.current?.discard()}
-            validate={(values) =>
-              node.kind === "courses" &&
-              values.suggested_is_paid === true &&
-              !(Number(values.suggested_price) > 0)
-                ? "A paid suggestion requires a positive price."
-                : validateContent(node.kind, values)
-            }
-            submit={async (values) => {
-              let saved: RecordData;
-              if (node.kind === "courses")
-                saved = object(await save("courses", values, id));
-              else
-                saved = entity(
-                  await request(
-                    `tutor/content/${node.kind}${node.data.id ? `/${str(node.data.id)}` : ""}`,
-                    node.data.id ? "PUT" : "POST",
-                    {
-                      ...values,
-                      [parents[node.kind]]: node.parentId,
-                      order_index: node.order,
-                    },
-                  ),
-                  keys[node.kind],
+          {node.kind === "quizzes" ? (
+            <QuizForm
+              key={`quiz-${str(node.data.id) || "new"}-${node.parentId}`}
+              initial={node.data}
+              onDirty={setDirty}
+              submit={saveNode}
+              checkLatest={async () => {
+                const records = rows(
+                  object(
+                    (await request(`tutor/lessons/${node.parentId}/quizzes`))
+                      .data,
+                  ).quizzes,
                 );
-              await cache.invalidateQueries();
-              if (node.kind === "courses") await attachments.current?.save();
-              setDirty(false);
-              if (pending) {
-                setNode(pending);
-                setPending(undefined);
-              } else setNode({ ...node, data: { ...node.data, ...saved } });
-            }}
-          />
+                cache.setQueryData(
+                  ["content", "quizzes", node.parentId],
+                  records,
+                );
+                return records;
+              }}
+              onLoaded={(record) => setNode({ ...node, data: record })}
+            />
+          ) : (
+            <SchemaForm
+              preview={
+                node.kind === "mini-lesson-blocks"
+                  ? (values) => <Block data={values} />
+                  : node.kind === "courses"
+                    ? (values) => <CourseDetailsPreview data={values} />
+                    : node.kind === "quizzes"
+                      ? (values) => <QuizMediaPreview data={values} />
+                      : undefined
+              }
+              key={`${node.kind}-${str(node.data.id) || "new"}-${node.parentId}`}
+              fields={
+                node.kind === "courses"
+                  ? courseFields
+                  : contentFields[node.kind]
+              }
+              initial={node.data}
+              onDirty={setDirty}
+              externalDirty={attachmentsDirty}
+              onDiscard={() => attachments.current?.discard()}
+              validate={(values) =>
+                node.kind === "courses" &&
+                values.suggested_is_paid === true &&
+                !(Number(values.suggested_price) > 0)
+                  ? "A paid suggestion requires a positive price."
+                  : validateContent(node.kind, values)
+              }
+              submit={saveNode}
+            />
+          )}
           {node.kind === "courses" && (
             <Attachments
+              key={id}
               id={id}
               onDirty={setAttachmentsDirty}
               saveRef={attachments}
             />
           )}
         </div>
-      </div>
+      </ResizableBuilder>
       <Modal
         title="Unsaved editor"
         open={!!pending}
