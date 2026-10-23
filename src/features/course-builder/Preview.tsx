@@ -11,8 +11,29 @@ import {
 } from "../../shared/api/client";
 import { Loading, ErrorPanel } from "../../shared/ui/primitives";
 import { MediaPreview, LinkPreviews } from "../../shared/media/MediaPreview";
+import { blockLink } from "./blocks";
 export function Block({ data }: { data: RecordData }) {
   if (data.content_type === "text") {
+    if (data.text_type === "link") {
+      const destination = blockLink(str(data.content));
+      if (!destination)
+        return (
+          <p className="error">
+            Enter a valid HTTP or HTTPS link to preview it.
+          </p>
+        );
+      return (
+        <div className="text-block block-link">
+          <a href={destination.href} target="_blank" rel="noopener noreferrer">
+            {str(object(data.media_metadata).label).trim() || str(data.content)}
+          </a>
+          <small>Opens {destination.hostname} in a new tab</small>
+          <span className="muted">{str(data.content)}</span>
+        </div>
+      );
+    }
+    if (data.text_type === "prompt")
+      return <PromptBlock content={str(data.content)} />;
     if (data.text_type === "formula") {
       let html: string;
       try {
@@ -55,6 +76,36 @@ export function Block({ data }: { data: RecordData }) {
       kind={str(data.content_type)}
       caption={str(metadata.caption)}
     />
+  );
+}
+function PromptBlock({ content }: { content: string }) {
+  const [message, setMessage] = useState("");
+  return (
+    <div className="text-block prompt-block">
+      <div className="actions">
+        <strong>Prompt</strong>
+        <button
+          type="button"
+          disabled={!content.trim()}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(content);
+              setMessage("Prompt copied");
+            } catch {
+              setMessage(
+                "Copy unavailable. Select the prompt text to copy it.",
+              );
+            }
+          }}
+        >
+          Copy prompt
+        </button>
+      </div>
+      <pre tabIndex={0} aria-label="Prompt content">
+        {content}
+      </pre>
+      <span role="status">{message}</span>
+    </div>
   );
 }
 export function CourseDetailsPreview({ data }: { data: RecordData }) {

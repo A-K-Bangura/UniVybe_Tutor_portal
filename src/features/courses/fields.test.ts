@@ -1,6 +1,31 @@
 import { it, expect } from "vitest";
 import { validateContent, courseFields } from "./fields";
 import { serialize } from "../../shared/forms/SchemaForm";
+import { roadmapFields } from "../roadmaps/config";
+import { resourceFields } from "../resources/config";
+import { levelLabel } from "./levels";
+
+it("keeps general as an explicit string and lets content levels be cleared", () => {
+  for (const fields of [courseFields, roadmapFields]) {
+    expect(serialize(fields, { level: "general" }).level).toBe("general");
+    expect(serialize(fields, { level: "200" }).level).toBe("200");
+    expect(serialize(fields, { level: "" }).level).toBeNull();
+    expect(serialize(fields, { level: null }).level).toBeNull();
+    expect(serialize(fields, {})).not.toHaveProperty("level");
+    expect(
+      fields.find((field) => field.name === "level")?.options,
+    ).toContainEqual({ value: "general", label: "General — wider audience" });
+  }
+  expect(
+    resourceFields.find((field) => field.name === "level")?.options,
+  ).not.toContain("general");
+  expect(
+    resourceFields.find((field) => field.name === "level")?.options,
+  ).not.toContainEqual({ value: "general", label: "General — wider audience" });
+  expect(serialize(resourceFields, { level: "" })).not.toHaveProperty("level");
+  expect(levelLabel("general")).toBe("General — wider audience");
+  expect(levelLabel(null)).toBe("");
+});
 it("omits paid-only suggestions for a free course", () => {
   const payload = serialize(courseFields, {
     title: "Course",

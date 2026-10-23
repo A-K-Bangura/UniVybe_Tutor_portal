@@ -1,4 +1,10 @@
 import type { Field } from "../../shared/forms/SchemaForm";
+import { contentLevelOptions } from "./levels";
+import {
+  blockDefaults,
+  blockIssues,
+  textTypes,
+} from "../course-builder/blocks";
 export const f = (
   name: string,
   type: Field["type"] = "text",
@@ -21,11 +27,23 @@ export const academic = [
   ]),
   f("semester"),
 ];
+// Resources retain academic-year values; only courses and roadmaps allow general.
+export const contentAcademic: Field[] = academic.map((field) =>
+  field.name === "level"
+    ? {
+        ...field,
+        options: contentLevelOptions,
+        nullable: true,
+        emptyLabel: "Not set",
+        help: "General is for a wider audience. Not set leaves the level unspecified.",
+      }
+    : field,
+);
 export const courseFields: Field[] = [
   f("title", "text", true),
   f("short_description", "textarea"),
   f("description", "textarea", true),
-  ...academic.filter((x) => x.name !== "organization_id"),
+  ...contentAcademic.filter((x) => x.name !== "organization_id"),
   f("course_code"),
   f("estimated_duration_hours", "number"),
   f("estimated_lessons_count", "number"),
@@ -72,13 +90,7 @@ export const contentFields: Record<string, Field[]> = {
       "embed",
       "document",
     ]),
-    f("text_type", "select", false, [
-      "plain",
-      "simply_put",
-      "important",
-      "remember",
-      "formula",
-    ]),
+    f("text_type", "select", false, textTypes),
     f("content", "textarea"),
     {
       ...f("media_url", "url"),
@@ -110,13 +122,8 @@ export const contentFields: Record<string, Field[]> = {
   ],
 };
 export function validateContent(kind: string, data: Record<string, unknown>) {
-  if (
-    kind === "mini-lesson-blocks" &&
-    !(data.content_type === "text" ? data.content : data.media_url)
-  )
-    return data.content_type === "text"
-      ? "Text blocks need content."
-      : "This block needs a media URL.";
+  if (kind === "mini-lesson-blocks")
+    return Object.values(blockIssues(blockDefaults(data)))[0]?.[0];
   if (
     kind === "quizzes" &&
     (!Array.isArray(data.correct_answer) || !data.correct_answer.length)

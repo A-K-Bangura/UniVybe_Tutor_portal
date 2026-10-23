@@ -1731,3 +1731,9 @@ main#main:has(.builder) {
 .quiz-form summary {
   font-weight: 600;
 }
+.block-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.prompt-editor, .prompt-block pre { font-family: Consolas, "Courier New", monospace; tab-size: 2; }
+.prompt-block pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 14px 0; }
+.prompt-block, .block-link { min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 16px; overflow-wrap: anywhere; }
+.block-link { display: grid; gap: 8px; }
+.block-link a { text-decoration: underline; font-weight: 600; }

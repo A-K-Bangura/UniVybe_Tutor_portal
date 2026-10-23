@@ -4,6 +4,7 @@ import { page, request, str, type RecordData } from "../../shared/api/client";
 import { ErrorPanel } from "../../shared/ui/primitives";
 
 import type { CourseFilterValues } from "./course-filter-values";
+import { contentLevelOptions } from "../courses/levels";
 
 async function institutions(path: string, signal: AbortSignal) {
   const items: RecordData[] = [];
@@ -179,11 +180,11 @@ export function CourseFilters({
             onChange={(e) => set("level", e.target.value)}
           >
             <option value="">Any level</option>
-            {["UnderGrad", "100", "200", "300", "400", "500", "graduate"].map(
-              (s) => (
-                <option key={s}>{s}</option>
-              ),
-            )}
+            {contentLevelOptions.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </label>
         {(

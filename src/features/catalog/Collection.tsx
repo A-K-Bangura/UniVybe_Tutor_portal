@@ -21,6 +21,7 @@ import {
   label,
 } from "../../shared/ui/primitives";
 import { Decision } from "../reviews/Decision";
+import { contentLevelOptions, levelLabel } from "../courses/levels";
 const statuses: Record<string, string[]> = {
   courses: ["draft", "pending_approval", "published", "rejected"],
   resources: ["pending_approval", "approved", "rejected"],
@@ -128,6 +129,20 @@ export default function Collection({
         <button onClick={() => setParams(statuses[kind] ? { status: "" } : {})}>
           Clear filters
         </button>
+        {role === "admin" && ["courses", "roadmaps"].includes(kind) && (
+          <select
+            aria-label="Filter by level"
+            value={params.get("level") || ""}
+            onChange={(e) => set("level", e.target.value)}
+          >
+            <option value="">Any level</option>
+            {contentLevelOptions.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       {q.isPending ? (
         <Loading />
@@ -205,6 +220,9 @@ export default function Collection({
                           />
                         </td>
                         <td>
+                          {["courses", "roadmaps"].includes(kind) && (
+                            <Badge value={levelLabel(item.level)} />
+                          )}
                           {str(
                             object(item.creator).full_name ||
                               object(item.university).name ||
@@ -263,6 +281,9 @@ export default function Collection({
                         ) || label(kind)}
                       </span>
                       <Badge value={item.status} />
+                      {["courses", "roadmaps"].includes(kind) && (
+                        <Badge value={levelLabel(item.level)} />
+                      )}
                     </div>
                     <h2>{str(item.title) || "Untitled"}</h2>
                     <p>

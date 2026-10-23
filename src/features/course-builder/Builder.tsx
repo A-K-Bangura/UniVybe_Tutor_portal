@@ -18,6 +18,9 @@ import {
   Modal,
 } from "../../shared/ui/primitives";
 import { QuizForm } from "./QuizForm";
+import { BlockForm } from "./BlockForm";
+import { blockTitle } from "./blocks";
+import { Link2, Terminal } from "lucide-react";
 import { SchemaForm } from "../../shared/forms/SchemaForm";
 import {
   contentFields,
@@ -27,12 +30,7 @@ import {
 import { Decision } from "../reviews/Decision";
 import { useSession } from "../../shared/auth/session";
 import { save } from "../catalog/service";
-import {
-  ContentPreview,
-  Block,
-  CourseDetailsPreview,
-  QuizMediaPreview,
-} from "./Preview";
+import { ContentPreview, CourseDetailsPreview } from "./Preview";
 import { Attachments, type PendingSequence } from "../resources/Attachments";
 import { ResizableBuilder } from "./ResizableBuilder";
 interface Node {
@@ -249,16 +247,36 @@ export function CourseBuilder({
               }}
               onLoaded={(record) => setNode({ ...node, data: record })}
             />
+          ) : node.kind === "mini-lesson-blocks" ? (
+            <BlockForm
+              key={`block-${str(node.data.id) || "new"}-${node.parentId}`}
+              initial={node.data}
+              submit={saveNode}
+              onDirty={setDirty}
+              checkLatest={async () => {
+                const records = rows(
+                  object(
+                    (
+                      await request(
+                        `tutor/mini-lessons/${node.parentId}/blocks`,
+                      )
+                    ).data,
+                  ).blocks,
+                );
+                cache.setQueryData(
+                  ["content", "mini-lesson-blocks", node.parentId],
+                  records,
+                );
+                return records;
+              }}
+              onLoaded={(record) => setNode({ ...node, data: record })}
+            />
           ) : (
             <SchemaForm
               preview={
-                node.kind === "mini-lesson-blocks"
-                  ? (values) => <Block data={values} />
-                  : node.kind === "courses"
-                    ? (values) => <CourseDetailsPreview data={values} />
-                    : node.kind === "quizzes"
-                      ? (values) => <QuizMediaPreview data={values} />
-                      : undefined
+                node.kind === "courses"
+                  ? (values) => <CourseDetailsPreview data={values} />
+                  : undefined
               }
               key={`${node.kind}-${str(node.data.id) || "new"}-${node.parentId}`}
               fields={
@@ -505,8 +523,15 @@ function Children({
                     });
                   }}
                 >
-                  {str(item.title || item.question) ||
-                    `${str(item.content_type)} block`}
+                  {item.content_type === "text" &&
+                    item.text_type === "link" && (
+                      <Link2 size={15} aria-hidden="true" />
+                    )}
+                  {item.content_type === "text" &&
+                    item.text_type === "prompt" && (
+                      <Terminal size={15} aria-hidden="true" />
+                    )}
+                  {blockTitle(item)}
                 </button>
                 <button
                   type="button"

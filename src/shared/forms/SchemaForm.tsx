@@ -53,6 +53,8 @@ export interface Field {
     | "richtext";
   // Fields that explicitly accept HTML use the rich editor.
   required?: boolean;
+  nullable?: boolean;
+  emptyLabel?: string;
   options?: string[] | { value: string; label: string }[];
   help?: string;
   min?: number;
@@ -64,6 +66,7 @@ export function serialize(fields: Field[], input: RecordData): RecordData {
     const value = input[f.name];
     if (value === "" || value === undefined || value === null) {
       if (f.type === "array") result[f.name] = [];
+      else if (f.nullable && value !== undefined) result[f.name] = null;
       else if (f.required) result[f.name] = value;
       continue;
     }
@@ -282,11 +285,11 @@ export function SchemaForm({
           defaults[field.name] !== "" &&
           field.type !== "array"
         )
-          values[field.name] = ["number", "url", "date", "json"].includes(
-            field.type || "",
-          )
-            ? null
-            : "";
+          values[field.name] =
+            field.nullable ||
+            ["number", "url", "date", "json"].includes(field.type || "")
+              ? null
+              : "";
       const message = validate?.(values);
       if (message) throw new Error(message);
       await submit(values);
@@ -391,7 +394,7 @@ export function SchemaForm({
                 />
               ) : f.type === "select" ? (
                 <select id={`field-${f.name}`} {...form.register(f.name)}>
-                  <option value="">Select…</option>
+                  <option value="">{f.emptyLabel || "Select…"}</option>
                   {f.name === "role_id" &&
                     [
                       ...(roleChoices.data || []),
