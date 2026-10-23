@@ -42,6 +42,74 @@ async function fixture(page: import("@playwright/test").Page, role: string) {
     });
   });
 }
+test("department faculty dropdown loads all pages and saves the selected ID", async ({
+  page,
+}) => {
+  await fixture(page, "admin");
+  const fetchedPages: number[] = [];
+  await page.route("**/api/v1/admin/faculties?*", async (route) => {
+    expect(route.request().headers().authorization).toBe(
+      "Bearer synthetic-token",
+    );
+    const index = Number(
+      new URL(route.request().url()).searchParams.get("page"),
+    );
+    fetchedPages.push(index);
+    await route.fulfill({
+      json: {
+        success: true,
+        data: [
+          {
+            id: index === 1 ? 2 : 8,
+            name: index === 1 ? "Engineering" : "Business",
+            university: { name: "Example University" },
+          },
+        ],
+        meta: { current_page: index, last_page: 2, per_page: 50, total: 2 },
+      },
+    });
+  });
+  const department = {
+    id: 5,
+    faculty_id: 8,
+    name: "Accounting",
+    is_active: true,
+  };
+  await page.route("**/api/v1/admin/departments/5", (route) =>
+    route.fulfill({ json: { success: true, data: { department } } }),
+  );
+  let submitted: Record<string, unknown> | undefined;
+  await page.route("**/api/v1/admin/departments", async (route) => {
+    submitted = route.request().postDataJSON();
+    await route.fulfill({
+      status: 201,
+      json: { success: true, data: { department } },
+    });
+  });
+  await page.goto("/departments/new");
+  const faculty = page.getByLabel("Faculty *", { exact: true });
+  await expect(faculty).toHaveRole("combobox");
+  await expect(
+    faculty.getByRole("option", { name: "Business — Example University" }),
+  ).toHaveCount(1);
+  expect([...new Set(fetchedPages)]).toEqual([1, 2]);
+  await faculty.selectOption("8");
+  await page.getByLabel("Name *", { exact: true }).fill("Accounting");
+  await page
+    .getByRole("button", { name: "Create department", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/departments\/5$/);
+  expect(submitted?.faculty_id).toBe(8);
+  await expect(faculty).toHaveValue("8");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(faculty).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("role gates survive direct URLs", async ({ page }) => {
   await fixture(page, "educator");
   await page.goto("/feed");

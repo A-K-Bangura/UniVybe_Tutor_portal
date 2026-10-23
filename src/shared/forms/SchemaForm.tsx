@@ -17,7 +17,11 @@ import { ErrorPanel, Modal, label } from "../ui/primitives";
 import { MediaField } from "../uploads/MediaField";
 import { useSession } from "../auth/session";
 const RichTextField = lazy(() => import("./RichTextField"));
-async function lookupAll(path: string, signal?: AbortSignal) {
+async function lookupAll(
+  path: string,
+  signal?: AbortSignal,
+  publicRequest = true,
+) {
   const records: RecordData[] = [];
   let last = 1;
   for (let index = 1; index <= last; index++) {
@@ -27,7 +31,7 @@ async function lookupAll(path: string, signal?: AbortSignal) {
         "GET",
         undefined,
         signal,
-        true,
+        publicRequest,
       ),
     );
     records.push(...result.items);
@@ -232,6 +236,13 @@ export function SchemaForm({
     liveValues = useWatch({ control: form.control }),
     faculty = useWatch({ control: form.control, name: "faculty_id" });
   const institution = fields.some((f) => f.name === "university_id");
+  const standaloneFaculty =
+    !institution && fields.some((f) => f.name === "faculty_id");
+  const adminFaculties = useQuery({
+    queryKey: ["lookup", "admin-faculties"],
+    queryFn: ({ signal }) => lookupAll("admin/faculties", signal, false),
+    enabled: standaloneFaculty,
+  });
   const universities = useQuery({
     queryKey: ["lookup", "universities"],
     queryFn: ({ signal }) => lookupAll("universities", signal),
@@ -307,7 +318,14 @@ export function SchemaForm({
   return (
     <>
       <form onSubmit={save} className="editor-form">
-        {[roleChoices, universities, faculties, departments, organizations]
+        {[
+          roleChoices,
+          universities,
+          faculties,
+          adminFaculties,
+          departments,
+          organizations,
+        ]
           .filter((q) => q.isError)
           .map((q, i) => (
             <ErrorPanel
@@ -352,6 +370,30 @@ export function SchemaForm({
                   {organizations.data?.map((r) => (
                     <option key={str(r.id)} value={str(r.id)}>
                       {str(r.name)}
+                    </option>
+                  ))}
+                </select>
+              ) : standaloneFaculty && f.name === "faculty_id" ? (
+                <select
+                  id={`field-${f.name}`}
+                  {...form.register(f.name)}
+                  disabled={adminFaculties.isPending || adminFaculties.isError}
+                >
+                  <option value="">
+                    {adminFaculties.isPending
+                      ? "Loading faculties…"
+                      : adminFaculties.isError
+                        ? "Unable to load faculties"
+                        : adminFaculties.data?.length
+                          ? "Select faculty…"
+                          : "No faculties available"}
+                  </option>
+                  {adminFaculties.data?.map((r) => (
+                    <option key={str(r.id)} value={str(r.id)}>
+                      {str(r.name)}
+                      {object(r.university).name
+                        ? ` — ${str(object(r.university).name)}`
+                        : ""}
                     </option>
                   ))}
                 </select>

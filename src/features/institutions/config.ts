@@ -3,7 +3,7 @@ export const institutionFields = (kind: string) => [
   ...(kind === "faculties"
     ? [f("university_id", "number", true)]
     : kind === "departments"
-      ? [f("faculty_id", "number", true)]
+      ? [f("faculty_id", "select", true)]
       : []),
   f("name", "text", true),
   f("code"),
