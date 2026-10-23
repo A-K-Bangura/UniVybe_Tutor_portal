@@ -17,6 +17,12 @@ The existing `.env` is preserved. Set `VITE_API_URL` to the complete API root, c
 
 Sign in using an existing account. Credentials are deliberately absent from source, examples and fixtures. Tokens are held in sessionStorage for the current tab; they are treated as opaque Sanctum tokens. Logout/401 clears private query data, and obsolete session responses cannot restore it.
 
+## Vercel deployment
+
+Use this repository as the Vercel project root with the Vite framework preset, build command `npm run build`, and output directory `dist`. Configure `VITE_API_URL` with the hosted Laravel API URL in the Vercel environment settings before building.
+
+The root `vercel.json` includes the [Vercel SPA rewrite](https://vercel.com/docs/frameworks/frontend/vite#using-vite-to-make-spas) to serve `index.html` for client routes. This allows direct visits and refreshes on pages such as `/courses/123` and `/account-status`; React Router handles the requested URL. Redeploy after adding or changing this configuration. After deployment, verify direct visits and refreshes on nested routes, and confirm JavaScript, CSS, and images still load. Local Vite routing alone does not verify Vercel deployment behavior.
+
 ## Application
 
 Feature folders implement authentication/OTP/onboarding, restricted account states, profile/security, course content authoring and preview, resource attachment and direct uploads, opportunity drafts and lifecycle, feed moderation, administration, coins, analytics, reports and search. Creators browse cards; admins operate tables. Forms retain failed drafts, expose indexed validation errors and guard unsaved navigation. Course publication submits to review. Resource rejection and opportunity rejection use their separate workflows.
