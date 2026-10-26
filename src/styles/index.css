@@ -878,6 +878,52 @@ td small {
   display: flex;
   cursor: pointer;
 }
+.course-outline summary::-webkit-details-marker {
+  display: none;
+}
+.outline-item {
+  border-radius: 8px;
+  border-left: 2px solid transparent;
+}
+.outline-item[open] > summary {
+  background: color-mix(in srgb, var(--text) 4%, var(--surface));
+  border-radius: 6px;
+}
+.outline-item.outline-active-branch {
+  border-left-color: color-mix(in srgb, #8b73e6 55%, var(--border));
+  background: color-mix(in srgb, #8b73e6 5%, var(--surface));
+}
+.outline-item.outline-active-branch > summary {
+  background: color-mix(in srgb, #8b73e6 10%, var(--surface));
+}
+.course-outline .outline-node[aria-current="true"],
+.course-outline .outline-group-head button[aria-current="true"] {
+  background: color-mix(in srgb, #8b73e6 18%, var(--surface));
+  color: var(--text);
+  box-shadow: inset 3px 0 #8b73e6;
+  font-weight: 600;
+}
+.course-outline .outline-toggle {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 4px;
+  min-width: 30px;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+.outline-toggle svg {
+  transition: transform 0.15s ease;
+}
+.outline-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .outline-toggle svg {
+    transition: none;
+  }
+}
 .order-controls {
   display: flex;
   justify-content: flex-end;

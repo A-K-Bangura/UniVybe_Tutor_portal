@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { createContext, useContext, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { SortableList } from "../../shared/ui/SortableList";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +20,7 @@ import {
 import { QuizForm } from "./QuizForm";
 import { BlockForm } from "./BlockForm";
 import { blockTitle } from "./blocks";
-import { Link2, Terminal } from "lucide-react";
+import { ChevronRight, Link2, Terminal } from "lucide-react";
 import { SchemaForm } from "../../shared/forms/SchemaForm";
 import {
   contentFields,
@@ -38,7 +38,13 @@ interface Node {
   data: RecordData;
   parentId: number;
   order: number;
+  ancestors?: string[];
 }
+const OutlineContext = createContext<{
+  selected: Node;
+  expanded: ReadonlySet<string>;
+  setExpanded: (key: string, open: boolean) => void;
+} | null>(null);
 const keys: Record<string, string> = {
   modules: "module",
   lessons: "lesson",
@@ -101,6 +107,18 @@ export function CourseBuilder({
     [deleteOpen, setDeleteOpen] = useState(false),
     [busy, setBusy] = useState(false);
   const [attachmentsDirty, setAttachmentsDirty] = useState(false);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const setOutlineExpanded = (key: string, open: boolean) => {
+    setExpanded((previous) => {
+      if (previous.has(key) === open) return previous;
+      const next = new Set(previous);
+      if (open) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  };
   const attachments = useRef<PendingSequence>(null);
   const select = (next: Node) => {
     if (dirty) setPending(next);
@@ -192,26 +210,40 @@ export function CourseBuilder({
       )}
       <ResizableBuilder
         outline={
-          <aside
-            className="course-outline panel custom-scroll"
-            tabIndex={0}
-            aria-label="Scrollable course outline"
+          <OutlineContext.Provider
+            value={{
+              selected: node,
+              expanded,
+              setExpanded: setOutlineExpanded,
+            }}
           >
-            <h2>Course outline</h2>
-            <p className="muted">
-              Module → lesson → mini-lesson → content blocks. Add quizzes to a
-              lesson.
-            </p>
-            <button
-              className="outline-node"
-              onClick={() =>
-                select({ kind: "courses", data: course, parentId: 0, order: 0 })
-              }
+            <aside
+              className="course-outline panel custom-scroll"
+              tabIndex={0}
+              aria-label="Scrollable course outline"
             >
-              Course details
-            </button>
-            <Branch kind="courses" data={course} select={select} />
-          </aside>
+              <h2>Course outline</h2>
+              <p className="muted">
+                Module → lesson → mini-lesson → content blocks. Add quizzes to a
+                lesson.
+              </p>
+              <button
+                className="outline-node"
+                aria-current={node.kind === "courses" ? "true" : undefined}
+                onClick={() =>
+                  select({
+                    kind: "courses",
+                    data: course,
+                    parentId: 0,
+                    order: 0,
+                  })
+                }
+              >
+                Course details
+              </button>
+              <Branch kind="courses" data={course} select={select} />
+            </aside>
+          </OutlineContext.Provider>
         }
       >
         <div
@@ -416,10 +448,12 @@ function Branch({
   kind,
   data,
   select,
+  ancestors = [],
 }: {
   kind: string;
   data: RecordData;
   select: (n: Node) => void;
+  ancestors?: string[];
 }) {
   return (
     <>
@@ -429,6 +463,7 @@ function Branch({
           parent={data}
           descriptor={child}
           select={select}
+          ancestors={ancestors}
         />
       ))}
     </>
@@ -438,14 +473,16 @@ function Children({
   parent,
   descriptor: d,
   select,
+  ancestors,
 }: {
   parent: RecordData;
   descriptor: { kind: string; path: string; key: string };
   select: (n: Node) => void;
+  ancestors: string[];
 }) {
+  const outline = useContext(OutlineContext)!;
   const [error, setError] = useState<unknown>(),
     [busy, setBusy] = useState(false),
-    [expanded, setExpanded] = useState<string[]>([]),
     cache = useQueryClient();
   const q = useQuery({
     queryKey: ["content", d.kind, parent.id],
@@ -497,12 +534,20 @@ function Children({
         <strong>{outlineLabels[d.kind].title}</strong>
         <button
           disabled={busy || q.isPending || q.isError}
+          aria-current={
+            !outline.selected.data.id &&
+            outline.selected.kind === d.kind &&
+            outline.selected.parentId === Number(parent.id)
+              ? "true"
+              : undefined
+          }
           onClick={() =>
             select({
               kind: d.kind,
               data: {},
               parentId: Number(parent.id),
               order: q.data?.length || 0,
+              ancestors,
             })
           }
         >
@@ -519,68 +564,89 @@ function Children({
           id={(item) => str(item.id)}
           disabled={busy}
           onChange={(next) => void persist(next)}
-          render={(item, index) => (
-            <details key={str(item.id)} open={expanded.includes(str(item.id))}>
-              <summary>
-                <button
-                  className="outline-node"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    select({
-                      kind: d.kind,
-                      data: item,
-                      parentId: Number(parent.id),
-                      order: Number(item.order_index || 0),
-                    });
-                  }}
-                >
-                  {item.content_type === "text" &&
-                    item.text_type === "link" && (
-                      <Link2 size={15} aria-hidden="true" />
-                    )}
-                  {item.content_type === "text" &&
-                    item.text_type === "prompt" && (
-                      <Terminal size={15} aria-hidden="true" />
-                    )}
-                  {blockTitle(item)}
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Expand ${str(item.title || item.question) || "content item"}`}
-                  aria-expanded={expanded.includes(str(item.id))}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setExpanded((previous) =>
-                      previous.includes(str(item.id))
-                        ? previous.filter((x) => x !== str(item.id))
-                        : [...previous, str(item.id)],
-                    );
-                  }}
-                >
-                  ⌄
-                </button>
-              </summary>
-              <div className="order-controls">
-                <button
-                  aria-label="Move up"
-                  disabled={busy || index === 0}
-                  onClick={() => void move(index, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  aria-label="Move down"
-                  disabled={busy || index === q.data.length - 1}
-                  onClick={() => void move(index, 1)}
-                >
-                  ↓
-                </button>
-              </div>
-              {expanded.includes(str(item.id)) && (
-                <Branch kind={d.kind} data={item} select={select} />
-              )}
-            </details>
-          )}
+          render={(item, index) => {
+            const key = `${d.kind}:${str(item.id)}`;
+            const open = outline.expanded.has(key);
+            const selected =
+              outline.selected.kind === d.kind &&
+              str(outline.selected.data.id) === str(item.id);
+            const activeBranch = outline.selected.ancestors?.includes(key);
+            const title = str(item.title || item.question) || blockTitle(item);
+            return (
+              <details
+                key={key}
+                className={`outline-item${activeBranch ? " outline-active-branch" : ""}`}
+                open={open}
+                onToggle={(event) => {
+                  if (event.target === event.currentTarget)
+                    outline.setExpanded(key, event.currentTarget.open);
+                }}
+              >
+                <summary>
+                  <button
+                    className="outline-node"
+                    aria-current={selected ? "true" : undefined}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      select({
+                        kind: d.kind,
+                        data: item,
+                        parentId: Number(parent.id),
+                        order: Number(item.order_index || 0),
+                        ancestors,
+                      });
+                    }}
+                  >
+                    {item.content_type === "text" &&
+                      item.text_type === "link" && (
+                        <Link2 size={15} aria-hidden="true" />
+                      )}
+                    {item.content_type === "text" &&
+                      item.text_type === "prompt" && (
+                        <Terminal size={15} aria-hidden="true" />
+                      )}
+                    {blockTitle(item)}
+                  </button>
+                  <button
+                    type="button"
+                    className="outline-toggle"
+                    aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+                    aria-expanded={open}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      outline.setExpanded(key, !open);
+                    }}
+                  >
+                    <ChevronRight size={17} aria-hidden="true" />
+                  </button>
+                </summary>
+                <div className="order-controls">
+                  <button
+                    aria-label="Move up"
+                    disabled={busy || index === 0}
+                    onClick={() => void move(index, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label="Move down"
+                    disabled={busy || index === q.data.length - 1}
+                    onClick={() => void move(index, 1)}
+                  >
+                    ↓
+                  </button>
+                </div>
+                {open && (
+                  <Branch
+                    kind={d.kind}
+                    data={item}
+                    select={select}
+                    ancestors={[...ancestors, key]}
+                  />
+                )}
+              </details>
+            );
+          }}
         />
       )}
       {error !== undefined && <ErrorPanel error={error} />}

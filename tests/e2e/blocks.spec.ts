@@ -6,6 +6,7 @@ async function builder(
   page: Page,
   block?: RecordData,
   extra: RecordData[] = [],
+  treeOverrides: Record<string, unknown> = {},
 ) {
   let records = block ? [block, ...extra] : extra;
   await page.addInitScript(() => {
@@ -45,6 +46,7 @@ async function builder(
     },
     "courses/1/resources": { resources: [] },
     "lessons/20/quizzes": { quizzes: [] },
+    ...treeOverrides,
   };
   await page.route("**/api/v1/**", (route) => {
     const path = new URL(route.request().url()).pathname.replace(
@@ -106,6 +108,122 @@ async function builder(
       .click();
   return { writes, records: () => records };
 }
+
+test("outline arrows track expansion and the edited branch stays highlighted", async ({
+  page,
+}) => {
+  await builder(
+    page,
+    {
+      id: 40,
+      title: "Intro block",
+      content_type: "text",
+      text_type: "plain",
+      content: "Course introduction",
+    },
+    [],
+    {
+      "courses/1/modules": {
+        modules: [
+          { id: 10, title: "Module" },
+          { id: 11, title: "Other module" },
+        ],
+      },
+      "modules/11/lessons": { lessons: [] },
+    },
+  );
+  const outline = page.getByRole("complementary", {
+    name: "Scrollable course outline",
+  });
+  const currentBlock = outline.getByRole("button", {
+    name: "Intro block",
+    exact: true,
+  });
+  await expect(currentBlock).toHaveAttribute("aria-current", "true");
+  await expect(outline.locator(".outline-active-branch")).toHaveCount(3);
+  const moduleToggle = outline.getByRole("button", {
+    name: "Collapse Module",
+    exact: true,
+  });
+  await expect(moduleToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(moduleToggle.locator("svg")).toHaveCSS(
+    "transform",
+    "matrix(0, 1, -1, 0, 0, 0)",
+  );
+  await moduleToggle.click();
+  const closedModule = outline.getByRole("button", {
+    name: "Expand Module",
+    exact: true,
+  });
+  await expect(closedModule).toHaveAttribute("aria-expanded", "false");
+  await expect(closedModule.locator("svg")).toHaveCSS("transform", "none");
+  // The branch remains identifiable even when its selected descendant is hidden.
+  await expect(closedModule.locator("..").locator("..")).toHaveClass(
+    /outline-active-branch/,
+  );
+  await closedModule.click();
+  await expect(
+    outline.getByRole("button", { name: "Collapse Lesson", exact: true }),
+  ).toBeVisible();
+  await expect(
+    outline.getByRole("button", { name: "Collapse Mini lesson", exact: true }),
+  ).toBeVisible();
+  await expect(currentBlock).toHaveAttribute("aria-current", "true");
+  await page.screenshot({
+    path: test.info().outputPath("outline-active-desktop.png"),
+    fullPage: true,
+  });
+
+  // A requested switch must not move the marker away from an unsaved editor.
+  await page
+    .getByLabel("Content", { exact: true })
+    .fill("Unsaved introduction");
+  const other = outline.getByRole("button", {
+    name: "Other module",
+    exact: true,
+  });
+  await other.click();
+  // The modal hides the outline from assistive technology while it is open.
+  await expect(
+    page.locator('.course-outline .outline-node[aria-current="true"]'),
+  ).toHaveText("Intro block");
+  await expect(
+    page
+      .locator(".course-outline .outline-node")
+      .filter({ hasText: /^Other module$/ }),
+  ).not.toHaveAttribute("aria-current");
+  await page.getByRole("button", { name: "Stay", exact: true }).click();
+  await other.click();
+  await page
+    .getByRole("button", { name: "Discard and switch", exact: true })
+    .click();
+  await expect(other).toHaveAttribute("aria-current", "true");
+  await expect(outline.locator(".outline-active-branch")).toHaveCount(0);
+  await expect(currentBlock).not.toHaveAttribute("aria-current");
+
+  await outline
+    .getByRole("button", { name: "Add module", exact: true })
+    .click();
+  await expect(
+    outline.getByRole("button", { name: "Add module", exact: true }),
+  ).toHaveAttribute("aria-current", "true");
+  await outline
+    .getByRole("button", { name: "Course details", exact: true })
+    .click();
+  await expect(
+    outline.getByRole("button", { name: "Course details", exact: true }),
+  ).toHaveAttribute("aria-current", "true");
+  await currentBlock.click();
+  await page.evaluate(() =>
+    document.documentElement.setAttribute("data-theme", "dark"),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(currentBlock).toHaveAttribute("aria-current", "true");
+  await page.screenshot({
+    path: test.info().outputPath("outline-active-mobile-dark.png"),
+    fullPage: true,
+  });
+});
 
 test("link blocks validate before saving, preview destinations and preserve or clear labels", async ({
   page,
