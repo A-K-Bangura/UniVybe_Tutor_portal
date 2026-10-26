@@ -43,6 +43,7 @@ const destinations = [
   ["roadmaps", "Roadmaps", Route],
   ["users", "People", Users],
   ["universities", "Institutions", Building2],
+  ["academic-modules", "Academic modules", BookOpen],
   ["organizations", "Organizations", Building2],
   ["coins", "Vybe Coins", Coins],
   ["analytics", "Analytics", ChartNoAxesCombined],

@@ -7,6 +7,11 @@ import {
 import type { Role } from "../../shared/auth/session";
 import { resourceSchema } from "../resources/dto";
 import { opportunitySchema } from "../opportunities/dto";
+import {
+  academicModuleSchema,
+  moduleRecord,
+  modulesPage,
+} from "../academic-modules/api";
 export const singular: Record<string, string> = {
   courses: "course",
   resources: "resource",
@@ -18,6 +23,7 @@ export const singular: Record<string, string> = {
   faculties: "faculty",
   departments: "department",
   organizations: "organization",
+  "academic-modules": "academic_module",
 };
 export const base = (kind: string, role: Role) =>
   `${role === "admin" || !["courses", "resources", "opportunities", "feed"].includes(kind) ? "admin" : "tutor"}/${kind}`;
@@ -29,10 +35,17 @@ export const list = async (
   params: URLSearchParams,
   signal?: AbortSignal,
 ) =>
-  page(
-    await request(`${base(kind, role)}?${params}`, "GET", undefined, signal),
-    kind === "feed" && role !== "admin",
-  );
+  kind === "academic-modules"
+    ? modulesPage(params, true, signal)
+    : page(
+        await request(
+          `${base(kind, role)}?${params}`,
+          "GET",
+          undefined,
+          signal,
+        ),
+        kind === "feed" && role !== "admin",
+      );
 export const detail = async (
   kind: string,
   role: Role,
@@ -53,7 +66,9 @@ export const detail = async (
       ? resourceSchema
       : kind === "opportunities"
         ? opportunitySchema
-        : undefined;
+        : kind === "academic-modules"
+          ? academicModuleSchema
+          : undefined;
   if (schema && !schema.safeParse(value).success)
     throw new Error(
       `The server returned an invalid ${singular[kind]} state or permission contract.`,
@@ -66,5 +81,8 @@ export const save = async (kind: string, values: RecordData, id?: string) => {
     id ? "PUT" : "POST",
     values,
   );
-  return kind === "users" && !id ? r.data : entity(r, singular[kind]);
+  const result = kind === "users" && !id ? r.data : entity(r, singular[kind]);
+  return kind === "academic-modules"
+    ? moduleRecord(result as RecordData)
+    : result;
 };

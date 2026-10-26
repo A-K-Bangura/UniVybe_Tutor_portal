@@ -43,7 +43,24 @@ export const courseFields: Field[] = [
   f("title", "text", true),
   f("short_description", "textarea"),
   f("description", "textarea", true),
-  ...contentAcademic.filter((x) => x.name !== "organization_id"),
+  ...contentAcademic.map((field) =>
+    field.name === "organization_id"
+      ? {
+          ...field,
+          nullable: true,
+          help: "Optional. An organization course does not need a university, faculty or department.",
+        }
+      : ["university_id", "faculty_id", "department_id"].includes(field.name)
+        ? { ...field, nullable: true }
+        : field,
+  ),
+  {
+    name: "academic_module_id",
+    type: "select",
+    nullable: true,
+    label: "Academic module",
+    help: "Optional official university module from the registry. This does not change the course title or its lesson chapters.",
+  },
   f("course_code"),
   f("estimated_duration_hours", "number"),
   f("estimated_lessons_count", "number"),

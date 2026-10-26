@@ -16,6 +16,7 @@ import {
 import { ErrorPanel, Modal, label } from "../ui/primitives";
 import { MediaField } from "../uploads/MediaField";
 import { useSession } from "../auth/session";
+import { AcademicModulePicker } from "../../features/academic-modules/Picker";
 const RichTextField = lazy(() => import("./RichTextField"));
 async function lookupAll(
   path: string,
@@ -59,6 +60,8 @@ export interface Field {
   required?: boolean;
   nullable?: boolean;
   emptyLabel?: string;
+  visibleWhen?: { field: string; value: string };
+  maxLength?: number;
   options?: string[] | { value: string; label: string }[];
   help?: string;
   min?: number;
@@ -137,6 +140,11 @@ export function SchemaForm({
               ctx.addIssue({
                 code: "custom",
                 message: "This field is required.",
+              });
+            if (f.maxLength && Array.from(str(value)).length > f.maxLength)
+              ctx.addIssue({
+                code: "custom",
+                message: `Use at most ${f.maxLength} characters.`,
               });
             if (
               f.required &&
@@ -236,6 +244,14 @@ export function SchemaForm({
     liveValues = useWatch({ control: form.control }),
     faculty = useWatch({ control: form.control, name: "faculty_id" });
   const institution = fields.some((f) => f.name === "university_id");
+  const visibleFields = fields.filter(
+    (field) =>
+      !field.visibleWhen ||
+      liveValues[field.visibleWhen.field] === field.visibleWhen.value,
+  );
+  const hasAcademicModule = fields.some(
+    (field) => field.name === "academic_module_id",
+  );
   const standaloneFaculty =
     !institution && fields.some((f) => f.name === "faculty_id");
   const adminFaculties = useQuery({
@@ -289,8 +305,8 @@ export function SchemaForm({
     setError(undefined);
     setSaved(false);
     try {
-      const values = serialize(fields, input);
-      for (const field of fields)
+      const values = serialize(visibleFields, input);
+      for (const field of visibleFields)
         if (
           input[field.name] === "" &&
           defaults[field.name] !== "" &&
@@ -351,7 +367,7 @@ export function SchemaForm({
           </ul>
         )}
         <div className="form-grid">
-          {fields.map((f) => (
+          {visibleFields.map((f) => (
             <div
               className={
                 ["textarea", "array", "json", "richtext"].includes(f.type || "")
@@ -364,9 +380,37 @@ export function SchemaForm({
                 {f.label || label(f.name)}
                 {f.required && " *"}
               </label>
-              {f.name === "organization_id" ? (
-                <select id={`field-${f.name}`} {...form.register(f.name)}>
+              {f.name === "academic_module_id" ? (
+                <AcademicModulePicker
+                  key={`${str(university)}:${str(faculty)}:${str(liveValues.department_id)}`}
+                  id={`field-${f.name}`}
+                  value={str(liveValues.academic_module_id)}
+                  onChange={(value) =>
+                    form.setValue(f.name, value, { shouldDirty: true })
+                  }
+                  university={str(university)}
+                  faculty={str(faculty)}
+                  department={str(liveValues.department_id)}
+                  current={initial.academic_module}
+                  disabled={isSubmitting}
+                />
+              ) : f.name === "organization_id" ? (
+                <select
+                  id={`field-${f.name}`}
+                  {...form.register(f.name)}
+                  value={str(liveValues[f.name])}
+                >
                   <option value="">Select organization…</option>
+                  {liveValues[f.name] &&
+                  !organizations.data?.some(
+                    (r) => str(r.id) === str(liveValues[f.name]),
+                  ) ? (
+                    <option value={str(liveValues[f.name])}>
+                      {organizations.isPending
+                        ? "Loading current organization…"
+                        : "Current organization (unavailable)"}
+                    </option>
+                  ) : null}
                   {organizations.data?.map((r) => (
                     <option key={str(r.id)} value={str(r.id)}>
                       {str(r.name)}
@@ -414,6 +458,10 @@ export function SchemaForm({
                     }
                     if (f.name === "faculty_id")
                       form.setValue("department_id", "", { shouldDirty: true });
+                    if (hasAcademicModule)
+                      form.setValue("academic_module_id", "", {
+                        shouldDirty: true,
+                      });
                   }}
                 >
                   <option value="">General / select…</option>
@@ -473,6 +521,7 @@ export function SchemaForm({
                 <textarea
                   id={`field-${f.name}`}
                   rows={f.type === "json" ? 7 : 4}
+                  maxLength={f.maxLength}
                   {...form.register(f.name)}
                 />
               ) : (
@@ -480,6 +529,7 @@ export function SchemaForm({
                   id={`field-${f.name}`}
                   type={f.type === "url" ? "text" : f.type || "text"}
                   step={f.type === "number" ? "any" : undefined}
+                  maxLength={f.maxLength}
                   {...form.register(f.name)}
                 />
               )}{" "}

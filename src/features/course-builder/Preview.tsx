@@ -12,6 +12,7 @@ import {
 import { Loading, ErrorPanel } from "../../shared/ui/primitives";
 import { MediaPreview, LinkPreviews } from "../../shared/media/MediaPreview";
 import { blockLink } from "./blocks";
+import { AcademicModuleSummary } from "../academic-modules/Summary";
 export function Block({ data }: { data: RecordData }) {
   if (data.content_type === "text") {
     if (data.text_type === "link") {
@@ -112,6 +113,7 @@ export function CourseDetailsPreview({ data }: { data: RecordData }) {
   return (
     <section aria-label="Course details preview">
       {str(data.title) && <h3>{str(data.title)}</h3>}
+      <AcademicModuleSummary value={data.academic_module} />
       {str(data.thumbnail_url) && (
         <MediaPreview
           url={str(data.thumbnail_url)}

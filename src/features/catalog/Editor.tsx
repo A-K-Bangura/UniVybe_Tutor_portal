@@ -35,6 +35,8 @@ import { Decision } from "../reviews/Decision";
 import { CourseBuilder } from "../course-builder/Builder";
 import { RoadmapSequence } from "../roadmaps/Sequence";
 import { CoursePicker } from "../roadmaps/CoursePicker";
+import { registryFields } from "../academic-modules/config";
+import { moduleDefaults, registryPayload } from "../academic-modules/api";
 const fieldMap: Record<string, Field[]> = {
   courses: courseFields,
   resources: resourceFields,
@@ -42,6 +44,7 @@ const fieldMap: Record<string, Field[]> = {
   feed: feedFields,
   users: userFields,
   roadmaps: roadmapFields,
+  "academic-modules": registryFields,
 };
 export default function Editor({ kind }: { kind: string }) {
   const { id } = useParams(),
@@ -91,6 +94,10 @@ export default function Editor({ kind }: { kind: string }) {
   let fields = (fieldMap[kind] || institutionFields(kind)).map((field) => ({
     ...field,
   }));
+  if (kind === "academic-modules" && Number(data.courses_count) > 0)
+    fields = fields.filter((field) =>
+      ["code", "title", "is_active"].includes(field.name),
+    );
   if (kind === "resources" || kind === "opportunities") {
     const field = fields.find(
       (x) =>
@@ -134,6 +141,7 @@ export default function Editor({ kind }: { kind: string }) {
     ...object(data.academic_context),
     content: data.content_html || data.content_text || data.content || "",
     application_deadline: str(data.application_deadline).slice(0, 10),
+    ...(kind === "academic-modules" ? moduleDefaults(data) : {}),
   };
   if (kind === "courses" && !isNew)
     return (
@@ -150,7 +158,7 @@ export default function Editor({ kind }: { kind: string }) {
       <Header
         title={
           isNew
-            ? `Create ${kind === "feed" ? "post" : kind.replace(/ies$/, "y").replace(/s$/, "")}`
+            ? `Create ${kind === "academic-modules" ? "academic module" : kind === "feed" ? "post" : kind.replace(/ies$/, "y").replace(/s$/, "")}`
             : str(data.title || data.name || data.full_name || data.email)
         }
         subtitle={
@@ -158,7 +166,9 @@ export default function Editor({ kind }: { kind: string }) {
             ? "Organization, contact information, and action links are public."
             : kind === "resources"
               ? "Resource kind and file format are separate. Rejected edits automatically return for review."
-              : undefined
+              : kind === "academic-modules"
+                ? "Official module registry. Deactivate modules to retire them; courses keep their existing assignments."
+                : undefined
         }
       >
         <Badge value={data.status} />
@@ -233,6 +243,32 @@ export default function Editor({ kind }: { kind: string }) {
           </>
         )}
       </Header>
+      {kind === "academic-modules" && !isNew && (
+        <section className="panel">
+          <p>{str(data.courses_count)} courses use this module.</p>
+          <DataView
+            value={{
+              scope: data.scope,
+              university: data.university,
+              faculty: data.faculty,
+              department: data.department,
+            }}
+          />
+          {Number(data.courses_count) > 0 && (
+            <p className="notice">
+              The academic location and scope are locked while courses use this
+              module. Its code, title and active status can still change.
+            </p>
+          )}
+        </section>
+      )}
+      {["faculties", "departments"].includes(kind) && !isNew && (
+        <p className="notice">
+          Academic modules can prevent moving or deleting this{" "}
+          {kind === "faculties" ? "faculty" : "department"}. The server checks
+          its dependencies before saving.
+        </p>
+      )}
       {data.rejection_reason != null && (
         <div className="feedback">
           <strong>Changes requested</strong>
@@ -405,15 +441,19 @@ export default function Editor({ kind }: { kind: string }) {
               isNew
                 ? kind === "opportunities"
                   ? "Save draft"
-                  : `Create ${kind.replace(/s$/, "")}`
+                  : `Create ${kind === "academic-modules" ? "academic module" : kind.replace(/s$/, "")}`
                 : "Save changes"
             }
             validate={(values) =>
-              kind === "courses" &&
-              values.suggested_is_paid === true &&
-              !(Number(values.suggested_price) > 0)
-                ? "A paid suggestion requires a positive price."
-                : undefined
+              kind === "academic-modules" &&
+              values.scope === "department" &&
+              !values.department_id
+                ? "Choose a department for a department module."
+                : kind === "courses" &&
+                    values.suggested_is_paid === true &&
+                    !(Number(values.suggested_price) > 0)
+                  ? "A paid suggestion requires a positive price."
+                  : undefined
             }
             submit={async (values) => {
               if (kind === "roadmaps" && isNew)
@@ -453,7 +493,15 @@ export default function Editor({ kind }: { kind: string }) {
                 )
                   delete values.application_deadline;
               }
-              const result = object(await save(kind, values, id));
+              const result = object(
+                await save(
+                  kind,
+                  kind === "academic-modules"
+                    ? registryPayload(values, isNew ? undefined : data)
+                    : values,
+                  id,
+                ),
+              );
               setInitialCourses([]);
               if (kind === "roadmaps") await sequence.current?.save();
               setStage("Saved and confirmed");

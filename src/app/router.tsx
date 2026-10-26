@@ -55,6 +55,7 @@ const kinds = [
   "faculties",
   "departments",
   "organizations",
+  "academic-modules",
 ];
 export const router = createBrowserRouter([
   { path: "/login", element: <Auth />, errorElement: <RouteError /> },

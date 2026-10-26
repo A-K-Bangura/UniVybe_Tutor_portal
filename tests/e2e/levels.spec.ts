@@ -36,6 +36,73 @@ async function fixture(page: Page, role = "admin") {
   });
 }
 
+test("organization-only course creates, reloads, changes and clears its organization", async ({
+  page,
+}) => {
+  await fixture(page, "tutor");
+  await page.route("**/api/v1/organizations?**", (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        data: [
+          { id: 42, name: "Community Learning" },
+          { id: 43, name: "Skills Network" },
+        ],
+        meta: { total: 2, current_page: 1, last_page: 1 },
+      },
+    }),
+  );
+  let record: Record<string, unknown> = {
+    id: 1,
+    uuid: "organization-course",
+    status: "draft",
+  };
+  const writes: Record<string, unknown>[] = [];
+  await page.route(
+    /\/api\/v1\/tutor\/courses(?:\/(?:organization-course|1))?$/,
+    (route) => {
+      if (["POST", "PUT"].includes(route.request().method())) {
+        const body = route.request().postDataJSON();
+        writes.push(body);
+        record = { ...record, ...body };
+      }
+      return route.fulfill({
+        json: { success: true, data: { course: record } },
+      });
+    },
+  );
+  await page.goto("/courses/new");
+  await page.getByLabel("Title *", { exact: true }).fill("Community training");
+  await page
+    .getByLabel("Description *", { exact: true })
+    .fill("Independent training");
+  const organization = page.getByLabel("Organization", { exact: true });
+  await organization.selectOption("42");
+  await page
+    .getByRole("button", { name: "Create course", exact: true })
+    .click();
+  await expect(page).toHaveURL(/courses\/organization-course$/);
+  expect(writes[0]).toMatchObject({
+    organization_id: 42,
+    university_id: null,
+    faculty_id: null,
+    department_id: null,
+    academic_module_id: null,
+  });
+  await page.reload();
+  await expect(organization).toHaveValue("42");
+  for (const label of ["University", "Faculty", "Department"])
+    await expect(page.getByLabel(label, { exact: true })).toHaveValue("");
+  await organization.selectOption("43");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => writes.at(-1)?.organization_id).toBe(43);
+  await organization.selectOption("");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => writes.at(-1)?.organization_id).toBeNull();
+  await page.reload();
+  await expect(organization).toHaveValue("");
+});
+
 for (const kind of ["courses", "roadmaps"] as const) {
   test(`${kind} general level creates, reloads, edits and clears to null`, async ({
     page,

@@ -1737,3 +1737,7 @@ main#main:has(.builder) {
 .prompt-block, .block-link { min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 16px; overflow-wrap: anywhere; }
 .block-link { display: grid; gap: 8px; }
 .block-link a { text-decoration: underline; font-weight: 600; }
+.academic-module-picker { display: grid; gap: 10px; min-width: 0; }
+.academic-module-picker .actions input { min-width: 0; flex: 1 1 170px; }
+.academic-module-picker select { width: 100%; min-width: 0; }
+.academic-module-summary { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; overflow-wrap: anywhere; }

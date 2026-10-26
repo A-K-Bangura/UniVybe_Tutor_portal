@@ -5,6 +5,7 @@ import { ErrorPanel } from "../../shared/ui/primitives";
 
 import type { CourseFilterValues } from "./course-filter-values";
 import { contentLevelOptions } from "../courses/levels";
+import { AcademicModulePicker } from "../academic-modules/Picker";
 
 async function institutions(path: string, signal: AbortSignal) {
   const items: RecordData[] = [];
@@ -94,6 +95,9 @@ export function CourseFilters({
     onChange({
       ...values,
       [key]: value,
+      ...(["university_id", "faculty_id", "department_id"].includes(key)
+        ? { academic_module_id: "" }
+        : {}),
       ...(key === "university_id"
         ? { faculty_id: "", department_id: "" }
         : key === "faculty_id"
@@ -227,6 +231,21 @@ export function CourseFilters({
             )}
           </label>
         ))}
+        <div>
+          <label htmlFor="picker-academic-module">Academic module</label>
+          <AcademicModulePicker
+            key={`${values.university_id}:${values.faculty_id}:${values.department_id}`}
+            id="picker-academic-module"
+            ariaLabel="Course academic module filter"
+            admin
+            university={values.university_id}
+            faculty={values.faculty_id}
+            department={values.department_id}
+            disabled={disabled}
+            value={values.academic_module_id}
+            onChange={(value) => set("academic_module_id", value)}
+          />
+        </div>
         <label>
           Find a course creator
           <input

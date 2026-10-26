@@ -4,6 +4,7 @@ import { emptyCourseFilters } from "./course-filter-values";
 import { request, page, str, type RecordData } from "../../shared/api/client";
 import { Badge, ErrorPanel, Loading } from "../../shared/ui/primitives";
 import { levelLabel } from "../courses/levels";
+import { AcademicModuleSummary } from "../academic-modules/Summary";
 export function CoursePicker({
   selected,
   onChange,
@@ -97,6 +98,7 @@ export function CoursePicker({
                 <strong>{str(course.title)}</strong>
                 <Badge value={course.status} />
                 <Badge value={levelLabel(course.level)} />
+                <AcademicModuleSummary value={course.academic_module} />
                 {added && <small>Already included</small>}
               </label>
             );

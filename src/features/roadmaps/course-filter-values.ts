@@ -5,6 +5,7 @@ export const emptyCourseFilters = {
   university_id: "",
   faculty_id: "",
   department_id: "",
+  academic_module_id: "",
   organization_id: "",
   semester: "",
   created_by: "",

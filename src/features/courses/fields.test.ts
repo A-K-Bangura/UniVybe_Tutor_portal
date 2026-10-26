@@ -26,6 +26,28 @@ it("keeps general as an explicit string and lets content levels be cleared", () 
   expect(levelLabel("general")).toBe("General — wider audience");
   expect(levelLabel(null)).toBe("");
 });
+it("serializes organization-only courses and explicit organization clearing", () => {
+  const payload = serialize(courseFields, {
+    title: "Organization training",
+    description: "Independent training",
+    organization_id: "42",
+    university_id: "",
+    faculty_id: "",
+    department_id: "",
+    academic_module_id: "",
+  });
+  expect(payload).toMatchObject({
+    organization_id: 42,
+    university_id: null,
+    faculty_id: null,
+    department_id: null,
+    academic_module_id: null,
+  });
+  expect(serialize(courseFields, { organization_id: "" })).toMatchObject({
+    organization_id: null,
+  });
+  expect(serialize(courseFields, {})).not.toHaveProperty("organization_id");
+});
 it("omits paid-only suggestions for a free course", () => {
   const payload = serialize(courseFields, {
     title: "Course",
