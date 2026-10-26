@@ -37,6 +37,7 @@ export function BlockForm({
   const [checking, setChecking] = useState(false);
   const [latest, setLatest] = useState<RecordData>();
   const [checked, setChecked] = useState("");
+  const [metadataOpen, setMetadataOpen] = useState(false);
   const blocker = useBlocker(isDirty && !isSubmitting);
   useEffect(() => {
     onDirty(isDirty);
@@ -57,6 +58,7 @@ export function BlockForm({
     form.clearErrors();
     const issues = blockIssues(values);
     if (Object.keys(issues).length) {
+      if (issues.media_metadata) setMetadataOpen(true);
       for (const [field, messages] of Object.entries(issues))
         form.setError(field as keyof BlockValues, {
           message: messages.join(" "),
@@ -72,6 +74,7 @@ export function BlockForm({
       if (blocker.state === "blocked") blocker.proceed();
     } catch (err) {
       setError(err);
+      if (problem(err).fields.media_metadata) setMetadataOpen(true);
       if (problem(err).uncertain) setUncertain(true);
       for (const [field, messages] of Object.entries(problem(err).fields))
         form.setError(
@@ -297,18 +300,29 @@ export function BlockForm({
               </div>
             )}
             {!link && !prompt && (
-              <div className="field wide">
-                <label htmlFor="block-metadata">Media metadata</label>
+              <details
+                className="field wide"
+                open={metadataOpen}
+                onToggle={(event) => setMetadataOpen(event.currentTarget.open)}
+              >
+                <summary>Advanced media metadata (optional)</summary>
+                <p className="muted">
+                  Leave this unchanged unless you need extra media properties
+                  such as a caption.
+                </p>
+                <label htmlFor="block-metadata">Media metadata (JSON)</label>
                 <textarea
                   id="block-metadata"
                   rows={4}
                   {...form.register("media_metadata")}
                 />
                 {fieldError("media_metadata")}
-              </div>
+              </details>
             )}
             <label className="field">
-              <span>Is published</span>
+              <span>
+                Make this block available when the course is published
+              </span>
               <input type="checkbox" {...form.register("is_published")} />
             </label>
           </div>

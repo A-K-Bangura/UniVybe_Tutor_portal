@@ -28,3 +28,6 @@ docs/qa/
 *.njsproj
 *.sln
 *.sw?
+
+.render/
+course-creation-manual.docx

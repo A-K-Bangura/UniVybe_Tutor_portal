@@ -46,6 +46,13 @@ const keys: Record<string, string> = {
   "mini-lesson-blocks": "block",
   quizzes: "quiz",
 };
+const outlineLabels: Record<string, { title: string; add: string }> = {
+  modules: { title: "Modules", add: "Add module" },
+  lessons: { title: "Lessons", add: "Add lesson" },
+  "mini-lessons": { title: "Mini-lessons", add: "Add mini-lesson" },
+  "mini-lesson-blocks": { title: "Content blocks", add: "Add content block" },
+  quizzes: { title: "Quizzes", add: "Add quiz" },
+};
 const parents: Record<string, string> = {
   modules: "course_id",
   lessons: "module_id",
@@ -191,6 +198,10 @@ export function CourseBuilder({
             aria-label="Scrollable course outline"
           >
             <h2>Course outline</h2>
+            <p className="muted">
+              Module → lesson → mini-lesson → content blocks. Add quizzes to a
+              lesson.
+            </p>
             <button
               className="outline-node"
               onClick={() =>
@@ -483,7 +494,7 @@ function Children({
   return (
     <div className="outline-group">
       <div className="outline-group-head">
-        <strong>{d.kind.replaceAll("-", " ")}</strong>
+        <strong>{outlineLabels[d.kind].title}</strong>
         <button
           disabled={busy || q.isPending || q.isError}
           onClick={() =>
@@ -495,7 +506,7 @@ function Children({
             })
           }
         >
-          Add
+          {outlineLabels[d.kind].add}
         </button>
       </div>
       {q.isPending ? (

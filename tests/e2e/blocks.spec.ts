@@ -100,9 +100,9 @@ async function builder(
     await page
       .locator(".outline-group-head")
       .filter({
-        has: page.locator("strong", { hasText: /^mini lesson blocks$/ }),
+        has: page.locator("strong", { hasText: /^Content blocks$/ }),
       })
-      .getByRole("button", { name: "Add", exact: true })
+      .getByRole("button", { name: "Add content block", exact: true })
       .click();
   return { writes, records: () => records };
 }

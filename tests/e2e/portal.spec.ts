@@ -1670,7 +1670,10 @@ test("course block and cover previews support images, YouTube and unsupported em
     .getByLabel("Media url", { exact: true })
     .fill("https://media.example.test/cover.png");
   await page
-    .getByLabel("Media metadata", { exact: true })
+    .getByText("Advanced media metadata (optional)", { exact: true })
+    .click();
+  await page
+    .getByLabel("Media metadata (JSON)", { exact: true })
     .fill('{"caption":"Circuit illustration"}');
   await expect(
     page.getByRole("img", { name: "Circuit illustration" }),
@@ -1746,10 +1749,10 @@ async function quizBuilderFixture(
       .locator(".outline-group-head")
       .filter({
         has: page.locator("strong", {
-          hasText: /^quizzes$/,
+          hasText: /^Quizzes$/,
         }),
       })
-      .getByRole("button", { name: "Add", exact: true })
+      .getByRole("button", { name: "Add quiz", exact: true })
       .click();
   await expect(page.getByLabel("Quiz type", { exact: true })).toBeVisible();
 }
