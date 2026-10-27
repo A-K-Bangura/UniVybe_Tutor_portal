@@ -110,6 +110,94 @@ test("department faculty dropdown loads all pages and saves the selected ID", as
   ).toBe(true);
 });
 
+test("people tabs default to creators and keep server results separate", async ({
+  page,
+}) => {
+  await fixture(page, "admin");
+  const queries: URLSearchParams[] = [];
+  await page.route("**/api/v1/admin/users?*", async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    queries.push(params);
+    const student = params.get("user_type") === "student";
+    await route.fulfill({
+      json: {
+        success: true,
+        data: [
+          {
+            id: student ? 21 : 31,
+            uuid: student ? "student-record" : "creator-record",
+            full_name: student ? "Student One" : "Creator One",
+            status: "pending",
+          },
+        ],
+        meta: {
+          current_page: Number(params.get("page") || 1),
+          last_page: 2,
+          total: 20,
+          per_page: 15,
+        },
+      },
+    });
+  });
+  await page.goto("/users");
+  const creators = page.getByRole("tab", {
+    name: "Creator users",
+    exact: true,
+  });
+  const students = page.getByRole("tab", { name: "Students", exact: true });
+  await expect(creators).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("link", { name: "Creator One", exact: true }),
+  ).toBeVisible();
+  expect(
+    queries.every(
+      (p) =>
+        p.get("user_type") === "creation_user" && p.get("status") === "pending",
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await students.click();
+  await expect(students).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("link", { name: "Student One", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Creator One", exact: true }),
+  ).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.has("page")).toBe(false);
+  await expect(
+    page.getByRole("link", { name: "Create user", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .click();
+  await expect(page.getByLabel("Filter by status")).toHaveValue("");
+  await expect(students).toHaveAttribute("aria-selected", "true");
+  await page.reload();
+  await expect(students).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("link", { name: "Student One", exact: true }),
+  ).toBeVisible();
+  expect(queries.at(-1)?.get("user_type")).toBe("student");
+  expect(queries.at(-1)?.has("status")).toBe(false);
+  await students.focus();
+  await students.press("ArrowLeft");
+  await expect(creators).toBeFocused();
+  await expect(creators).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("link", { name: "Create user", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(creators).toBeVisible();
+  await expect(students).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("role gates survive direct URLs", async ({ page }) => {
   await fixture(page, "educator");
   await page.goto("/feed");
