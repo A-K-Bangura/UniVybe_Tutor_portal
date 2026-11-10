@@ -20,6 +20,7 @@ const Dashboard = lazy(() => import("../features/dashboard/Dashboard")),
 const GigsList = lazy(() => import("../features/gigs/List")),
   GigEditor = lazy(() => import("../features/gigs/Editor")),
   GigCategories = lazy(() => import("../features/gigs/Categories"));
+const Guidance = lazy(() => import("../features/guidance/Guidance"));
 function Guard({ area }: { area?: string }) {
   const s = useSession();
   if (s.state === "booting") return <Loading />;
@@ -71,6 +72,31 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: "dashboard", element: <Dashboard /> },
+          {
+            element: <Guard area="guidance" />,
+            children: [
+              { path: "guidance", element: <Guidance /> },
+              { path: "guidance/:id", element: <Guidance /> },
+            ],
+          },
+          {
+            element: <Guard area="guidance-admin" />,
+            children: [
+              {
+                path: "guidance-admin",
+                element: <Navigate to="/guidance-admin/guides" replace />,
+              },
+              { path: "guidance-admin/guides", element: <Guidance admin /> },
+              {
+                path: "guidance-admin/guides/:id",
+                element: <Guidance admin />,
+              },
+              ...["categories", "settings", "inquiries"].map((view) => ({
+                path: `guidance-admin/${view}`,
+                element: <Guidance admin view={view} />,
+              })),
+            ],
+          },
           {
             element: <Guard area="gigs" />,
             children: [

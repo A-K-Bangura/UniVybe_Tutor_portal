@@ -37,6 +37,8 @@ const destinations = [
   ["resources", "Resource library", Files],
   ["opportunities", "Opportunities", Briefcase],
   ["gigs", "My gigs", Briefcase],
+  ["guidance", "Guidance contacts", Users],
+  ["guidance-admin", "Guidance administration", ShieldCheck],
   ["gigs-admin", "Gig reviews", ShieldCheck],
   ["feed", "Community feed", MessageSquare],
   ["reviews", "Review queues", ShieldCheck],

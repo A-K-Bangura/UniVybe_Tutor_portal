@@ -102,6 +102,7 @@ export const useSession = create<Session>((set, get) => ({
   },
 }));
 export const can = (role: Role, area: string) => {
+  if (area === "guidance") return true;
   if (["profile", "security", "dashboard"].includes(area)) return true;
   if (["analytics", "reports", "system-health", "search"].includes(area))
     return (
