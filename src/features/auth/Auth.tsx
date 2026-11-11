@@ -244,9 +244,14 @@ export function Onboarding() {
       .filter((x) => !["level", "semester"].includes(x.name))
       .map((x) => ({
         ...x,
-        required: x.name === "university_id" && role !== "admin",
+        required:
+          x.name === "university_id" &&
+          !["admin", "super_admin"].includes(role || ""),
       })),
-    { ...f("qualification"), required: role !== "admin" },
+    {
+      ...f("qualification"),
+      required: !["admin", "super_admin"].includes(role || ""),
+    },
     ...(["educator", "tutor", "contributor"].includes(role || "")
       ? [
           f("expertise_area", "text", true),

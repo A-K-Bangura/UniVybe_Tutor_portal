@@ -65,13 +65,15 @@ export default function Collection({
     [selection, setSelection] = useState<number[]>([]),
     [bulk, setBulk] = useState<string>();
   const p = new URLSearchParams(params);
-  const people = kind === "users" && role === "admin";
+  const people = kind === "users" && ["admin", "super_admin"].includes(role);
   const userType =
     params.get("user_type") === "student" ? "student" : "creation_user";
   if (people) p.set("user_type", userType);
   const status =
     params.get("status") ??
-    (role === "admin" ? pendingStatuses[kind] || "" : "");
+    (["admin", "super_admin"].includes(role)
+      ? pendingStatuses[kind] || ""
+      : "");
   if (status) p.set("status", status);
   else p.delete("status");
   p.set("per_page", "15");
@@ -102,7 +104,8 @@ export default function Collection({
     setParams(next);
   };
   const academicFilters =
-    kind === "academic-modules" || (kind === "courses" && role === "admin");
+    kind === "academic-modules" ||
+    (kind === "courses" && ["admin", "super_admin"].includes(role));
   return (
     <>
       <Header
@@ -125,6 +128,14 @@ export default function Collection({
                 : "Your work, in one place. Create, refine, and keep things moving."
         }
       >
+        {people && role === "super_admin" && (
+          <Link
+            className="button"
+            to="/users?role=admin&status=pending&user_type=creation_user"
+          >
+            Admin approval queue
+          </Link>
+        )}
         {!review && (!people || userType === "creation_user") && (
           <Link className="button primary" to={`/${kind}/new`}>
             <Plus size={17} /> Create{" "}
@@ -221,20 +232,21 @@ export default function Collection({
           >
             Clear filters
           </button>
-          {role === "admin" && ["courses", "roadmaps"].includes(kind) && (
-            <select
-              aria-label="Filter by level"
-              value={params.get("level") || ""}
-              onChange={(e) => set("level", e.target.value)}
-            >
-              <option value="">Any level</option>
-              {contentLevelOptions.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          )}
+          {["admin", "super_admin"].includes(role) &&
+            ["courses", "roadmaps"].includes(kind) && (
+              <select
+                aria-label="Filter by level"
+                value={params.get("level") || ""}
+                onChange={(e) => set("level", e.target.value)}
+              >
+                <option value="">Any level</option>
+                {contentLevelOptions.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
           {kind === "academic-modules" && (
             <>
               <select
@@ -264,7 +276,7 @@ export default function Collection({
             onChange={setMany}
           />
         )}
-        {kind === "courses" && role === "admin" && (
+        {kind === "courses" && ["admin", "super_admin"].includes(role) && (
           <div className="panel">
             <label htmlFor="course-module-filter">Academic module filter</label>
             <AcademicModulePicker
@@ -296,7 +308,7 @@ export default function Collection({
                     : `Your ${kind} will appear here when they are created.`}
                 </p>
               </div>
-            ) : role === "admin" ? (
+            ) : ["admin", "super_admin"].includes(role) ? (
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -352,6 +364,20 @@ export default function Collection({
                             <small>
                               {str(item.short_description || item.email)}
                             </small>
+                            {people && (
+                              <small>
+                                {str(
+                                  object(item.role).display_name ||
+                                    object(item.role).name,
+                                )}
+                                {item.is_original_super_admin === true
+                                  ? " · Original Super Admin (protected)"
+                                  : ""}
+                                {item.awaiting_super_admin_approval === true
+                                  ? " · Awaiting Super Admin approval"
+                                  : ""}
+                              </small>
+                            )}
                             {kind === "courses" && (
                               <AcademicModuleSummary
                                 value={item.academic_module}
@@ -502,17 +528,19 @@ export default function Collection({
                 </button>
               </div>
             </div>
-            {kind === "feed" && role === "admin" && selection.length > 0 && (
-              <div className="save-bar">
-                <span>{selection.length} selected</span>
-                <button onClick={() => setBulk("bulk-approve")}>
-                  Approve selected
-                </button>
-                <button onClick={() => setBulk("bulk-reject")}>
-                  Reject selected
-                </button>
-              </div>
-            )}
+            {kind === "feed" &&
+              ["admin", "super_admin"].includes(role) &&
+              selection.length > 0 && (
+                <div className="save-bar">
+                  <span>{selection.length} selected</span>
+                  <button onClick={() => setBulk("bulk-approve")}>
+                    Approve selected
+                  </button>
+                  <button onClick={() => setBulk("bulk-reject")}>
+                    Reject selected
+                  </button>
+                </div>
+              )}
           </>
         )}
         {bulk && (

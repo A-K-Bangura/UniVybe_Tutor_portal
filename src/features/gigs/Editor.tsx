@@ -202,9 +202,10 @@ function GigWorkspace({
               from public discovery.
             </p>
           )}
-          {gig.closed_by_role === "admin" && role !== "admin" && (
-            <p>Closed by an admin. Only an admin can reopen it.</p>
-          )}
+          {["admin", "super_admin"].includes(str(gig.closed_by_role)) &&
+            !["admin", "super_admin"].includes(role) && (
+              <p>Closed by an admin. Only an admin can reopen it.</p>
+            )}
           {dirty && <p>Save your content changes before managing this gig.</p>}
           <fieldset
             className="gig-action-controls"
@@ -233,7 +234,7 @@ function GigWorkspace({
                       Reopen gig
                     </button>
                   )}
-                  {role === "admin" &&
+                  {["admin", "super_admin"].includes(role) &&
                     adminActions(gig).map((name) => (
                       <button key={name} onClick={() => setAction(name)}>
                         {label(name)}
@@ -541,7 +542,8 @@ function GigWorkspace({
             }
             save={async (values) => {
               const privileged =
-                role === "admin" && !["submit", "settings"].includes(action);
+                ["admin", "super_admin"].includes(role) &&
+                !["submit", "settings"].includes(action);
               const prefix = `${privileged ? "admin" : "tutor"}/gigs/${key(id)}`;
               let body: RecordData = {};
               if (["settings", "reopen"].includes(action))

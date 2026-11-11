@@ -21,6 +21,7 @@ const GigsList = lazy(() => import("../features/gigs/List")),
   GigEditor = lazy(() => import("../features/gigs/Editor")),
   GigCategories = lazy(() => import("../features/gigs/Categories"));
 const Guidance = lazy(() => import("../features/guidance/Guidance"));
+const UserEditor = lazy(() => import("../features/users/UserEditor"));
 function Guard({ area }: { area?: string }) {
   const s = useSession();
   if (s.state === "booting") return <Loading />;
@@ -117,8 +118,16 @@ export const router = createBrowserRouter([
             element: <Guard area={kind} />,
             children: [
               { path: kind, element: <Collection kind={kind} /> },
-              { path: `${kind}/new`, element: <Editor kind={kind} /> },
-              { path: `${kind}/:id`, element: <Editor kind={kind} /> },
+              {
+                path: `${kind}/new`,
+                element:
+                  kind === "users" ? <UserEditor /> : <Editor kind={kind} />,
+              },
+              {
+                path: `${kind}/:id`,
+                element:
+                  kind === "users" ? <UserEditor /> : <Editor kind={kind} />,
+              },
             ],
           })),
           {

@@ -26,7 +26,7 @@ export const singular: Record<string, string> = {
   "academic-modules": "academic_module",
 };
 export const base = (kind: string, role: Role) =>
-  `${role === "admin" || !["courses", "resources", "opportunities", "feed"].includes(kind) ? "admin" : "tutor"}/${kind}`;
+  `${["admin", "super_admin"].includes(role) || !["courses", "resources", "opportunities", "feed"].includes(kind) ? "admin" : "tutor"}/${kind}`;
 export const editBase = (kind: string) =>
   `${["courses", "resources", "opportunities", "feed"].includes(kind) ? "tutor" : "admin"}/${kind}`;
 export const list = async (
@@ -44,7 +44,7 @@ export const list = async (
           undefined,
           signal,
         ),
-        kind === "feed" && role !== "admin",
+        kind === "feed" && !["admin", "super_admin"].includes(role),
       );
 export const detail = async (
   kind: string,

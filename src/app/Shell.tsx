@@ -117,7 +117,7 @@ export function Shell() {
             ))}
         </nav>
         <div className="sidebar-bottom">
-          {user.role.name === "admin" && (
+          {["admin", "super_admin"].includes(user.role.name) && (
             <details>
               <summary>Administration tools</summary>
               {[

@@ -7,6 +7,7 @@ import {
   getGeneration,
 } from "../api/client";
 export const roleSchema = z.enum([
+  "super_admin",
   "admin",
   "educator",
   "tutor",
@@ -67,7 +68,8 @@ export const useSession = create<Session>((set, get) => ({
         (!user.firstname ||
           !user.lastname ||
           !user.phone ||
-          (user.role.name !== "admin" && !user.qualification));
+          (!["admin", "super_admin"].includes(user.role.name) &&
+            !user.qualification));
       set({
         user,
         state:
@@ -102,16 +104,18 @@ export const useSession = create<Session>((set, get) => ({
   },
 }));
 export const can = (role: Role, area: string) => {
+  if (role === "super_admin") return true;
   if (area === "guidance") return true;
   if (["profile", "security", "dashboard"].includes(area)) return true;
   if (["analytics", "reports", "system-health", "search"].includes(area))
     return (
       ["admin", "moderator", "educator", "tutor"].includes(role) &&
-      (area !== "system-health" || ["admin", "moderator"].includes(role))
+      (area !== "system-health" ||
+        ["admin", "super_admin", "moderator"].includes(role))
     );
   if (area === "courses") return ["admin", "educator", "tutor"].includes(role);
   if (area === "feed") return ["admin", "tutor", "contributor"].includes(role);
   if (["resources", "opportunities", "gigs"].includes(area))
     return role !== "moderator";
-  return role === "admin";
+  return ["admin", "super_admin"].includes(role);
 };

@@ -15,7 +15,7 @@ const AnalyticsCharts = lazy(() => import("./AnalyticsCharts"));
 export default function Insights({ view = "dashboard" }: { view?: string }) {
   const { id } = useParams();
   const role = useSession((s) => s.user!.role.name),
-    admin = ["admin", "moderator"].includes(role),
+    admin = ["admin", "super_admin", "moderator"].includes(role),
     [tab, setTab] = useState("dashboard"),
     [params, setParams] = useSearchParams(),
     [metadata, setMetadata] = useState<unknown>(),

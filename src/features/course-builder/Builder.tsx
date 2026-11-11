@@ -193,7 +193,7 @@ export function CourseBuilder({
         >
           Submit for approval
         </button>
-        {role === "admin" && (
+        {["admin", "super_admin"].includes(role) && (
           <>
             <button onClick={() => onAction("approve")}>Approve course</button>
             <button onClick={() => onAction("reject")}>Reject</button>
@@ -436,7 +436,7 @@ export function CourseBuilder({
           id={id}
           action={action}
           snapshot={course}
-          creator={role !== "admin"}
+          creator={!["admin", "super_admin"].includes(role)}
           onDeleted={() => navigate("/courses")}
           onClose={closeAction}
         />

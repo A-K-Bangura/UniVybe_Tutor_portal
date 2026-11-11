@@ -11,6 +11,7 @@ export const str = (value: unknown) =>
 export const rows = (value: unknown): RecordData[] =>
   Array.isArray(value) ? value.map(object) : [];
 export class ApiError extends Error {
+  code?: string;
   status?: number;
   fields: Record<string, string[]> = {};
   uncertain = false;
@@ -27,6 +28,7 @@ export function problem(error: unknown): ApiError {
     const body = object(error.response?.data),
       detail = object(body.error);
     const safe = str(detail.message || body.message);
+    e.code = str(detail.code);
     e.message =
       e.status === 404
         ? "This record is missing or has been removed."
@@ -52,6 +54,10 @@ export const client = axios.create({
 });
 let sessionGeneration = 0;
 let invalidator: (() => void) | undefined;
+let inactiveHandler: (() => void) | undefined;
+export function setInactiveHandler(fn: () => void) {
+  inactiveHandler = fn;
+}
 export function setInvalidator(fn: () => void) {
   invalidator = fn;
 }
@@ -99,6 +105,12 @@ export async function request(
   } catch (error) {
     if (axios.isCancel(error)) throw error;
     const normalized = problem(error);
+    if (
+      normalized.code === "ADMIN_ACCOUNT_NOT_ACTIVE" &&
+      generation === sessionGeneration &&
+      !publicRequest
+    )
+      inactiveHandler?.();
     if (
       normalized.status === 401 &&
       generation === sessionGeneration &&

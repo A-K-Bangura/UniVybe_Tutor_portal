@@ -8,7 +8,7 @@ export const userFields = [
   {
     ...f("role_id", "select", true),
     label: "Role",
-    help: "Only backend-confirmed roles are offered. Moderator provisioning awaits a complete administrator role lookup.",
+    help: "Roles and account creation permissions come from the administrator role directory.",
   },
   f("status", "select", true, ["pending", "approved", "rejected", "suspended"]),
   ...academic.filter((field) => !["level", "semester"].includes(field.name)),

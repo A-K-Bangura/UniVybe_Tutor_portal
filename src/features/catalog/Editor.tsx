@@ -89,7 +89,7 @@ export default function Editor({ kind }: { kind: string }) {
       (["resources", "opportunities"].includes(kind) &&
         permissions.can_edit !== true) ||
       (kind === "feed" &&
-        role !== "admin" &&
+        !["admin", "super_admin"].includes(role) &&
         !["pending", "rejected"].includes(str(data.status))));
   let fields = (fieldMap[kind] || institutionFields(kind)).map((field) => ({
     ...field,
@@ -177,7 +177,7 @@ export default function Editor({ kind }: { kind: string }) {
         )}
         {!isNew && (
           <>
-            {role === "admin" &&
+            {["admin", "super_admin"].includes(role) &&
               ["users", "resources", "opportunities", "feed"].includes(kind) &&
               ["pending", "pending_approval", "rejected"].includes(
                 str(data.status),
@@ -189,10 +189,10 @@ export default function Editor({ kind }: { kind: string }) {
                   )}
                 </>
               )}
-            {kind === "users" && role === "admin" && (
+            {kind === "users" && ["admin", "super_admin"].includes(role) && (
               <button onClick={() => setAction("suspend")}>Suspend</button>
             )}
-            {kind === "feed" && role === "admin" && (
+            {kind === "feed" && ["admin", "super_admin"].includes(role) && (
               <button onClick={() => setAction("hide")}>Hide</button>
             )}
             {kind === "opportunities" && permissions.can_submit === true && (
@@ -207,7 +207,7 @@ export default function Editor({ kind }: { kind: string }) {
                   }
                 }}
               >
-                {role === "admin"
+                {["admin", "super_admin"].includes(role)
                   ? "Publish own opportunity"
                   : data.status === "rejected"
                     ? "Resubmit for approval"
@@ -215,7 +215,7 @@ export default function Editor({ kind }: { kind: string }) {
               </button>
             )}
             {kind === "opportunities" &&
-              role === "admin" &&
+              ["admin", "super_admin"].includes(role) &&
               [
                 ["publish", ["draft", "unpublished"]],
                 ["unpublish", ["published", "closed"]],
@@ -230,7 +230,7 @@ export default function Editor({ kind }: { kind: string }) {
                     {str(a)}
                   </button>
                 ))}
-            {(role === "admin" ||
+            {(["admin", "super_admin"].includes(role) ||
               permissions.can_delete === true ||
               (kind === "feed" && !locked)) && (
               <button
@@ -532,7 +532,7 @@ export default function Editor({ kind }: { kind: string }) {
           />
         </div>
       )}
-      {kind === "feed" && !isNew && role === "admin" && (
+      {kind === "feed" && !isNew && ["admin", "super_admin"].includes(role) && (
         <Comments comments={rows(data.comments)} />
       )}{" "}
       {kind === "feed" && !isNew && <FeedStats id={id!} />}{" "}
@@ -548,7 +548,7 @@ export default function Editor({ kind }: { kind: string }) {
           id={id!}
           action={action}
           snapshot={data}
-          creator={role !== "admin"}
+          creator={!["admin", "super_admin"].includes(role)}
           onDeleted={() => navigate(`/${kind}`)}
           onClose={() => {
             setAction(undefined);

@@ -10,7 +10,9 @@ import {
 } from "../../shared/ui/primitives";
 export default function Search() {
   const role = useSession((s) => s.user!.role.name),
-    prefix = ["admin", "moderator"].includes(role) ? "admin" : "tutor",
+    prefix = ["admin", "super_admin", "moderator"].includes(role)
+      ? "admin"
+      : "tutor",
     [text, setText] = useState(""),
     [debounced, setDebounced] = useState(""),
     [offset, setOffset] = useState(0);

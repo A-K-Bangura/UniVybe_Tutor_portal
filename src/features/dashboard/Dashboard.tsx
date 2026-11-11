@@ -19,7 +19,7 @@ import {
 export default function Dashboard() {
   const user = useSession((s) => s.user!),
     role = user.role.name,
-    admin = ["admin", "moderator"].includes(role),
+    admin = ["admin", "super_admin", "moderator"].includes(role),
     contributor = role === "contributor";
   const endpoint = contributor
     ? "tutor/feed/stats"
