@@ -74,6 +74,11 @@ async function builder(
     const body = route.request().postDataJSON();
     writes.push(body);
     const saved = { ...records[0], ...body, id: 40 };
+    if (saved.content_type === "audio")
+      saved.media_metadata = {
+        ...(records[0]?.media_metadata as RecordData),
+        ...(body.media_metadata as RecordData),
+      };
     records = [saved];
     return route.fulfill({
       status: route.request().method() === "POST" ? 201 : 200,
@@ -88,13 +93,17 @@ async function builder(
   if (block)
     await page
       .getByRole("button", {
-        name: block.title
-          ? String(block.title)
-          : block.text_type === "prompt"
-            ? "Prompt block"
-            : block.text_type === "link"
-              ? "Link block"
-              : "text block",
+        name:
+          block.content_type === "audio" &&
+          (block.media_metadata as RecordData)?.title
+            ? String((block.media_metadata as RecordData).title)
+            : block.title
+              ? String(block.title)
+              : block.text_type === "prompt"
+                ? "Prompt block"
+                : block.text_type === "link"
+                  ? "Link block"
+                  : "text block",
         exact: true,
       })
       .click();
@@ -108,6 +117,137 @@ async function builder(
       .click();
   return { writes, records: () => records };
 }
+
+test("audio creation uploads private bytes and registers only the token and title", async ({
+  page,
+}) => {
+  const { writes } = await builder(page);
+  let uploadHeaders: Record<string, string> = {};
+  let uploadAttempts = 0;
+  await page.route(
+    "**/api/v1/tutor/content/mini-lesson-blocks/audio-uploads",
+    (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          data: {
+            method: "PUT",
+            upload_url: "https://audio.example.test/upload",
+            upload_token: "audio-token",
+            headers: { "Content-Type": "audio/wav" },
+            max_size_bytes: 125829120,
+            max_duration_seconds: 600,
+          },
+        },
+      }),
+  );
+  await page.route("https://audio.example.test/upload", (route) => {
+    if (++uploadAttempts === 1) return route.abort("failed");
+    uploadHeaders = route.request().headers();
+    return route.fulfill({ status: 200, body: "" });
+  });
+  await page
+    .getByLabel("Content type *", { exact: true })
+    .selectOption("audio");
+  await page
+    .getByLabel("Audio title", { exact: true })
+    .fill("Introduction recording");
+  await page.getByLabel("Audio file", { exact: true }).setInputFiles({
+    name: "note.wav",
+    mimeType: "audio/wav",
+    buffer: Buffer.from("fixture bytes"),
+  });
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Save changes", exact: true }),
+  ).toBeEnabled();
+  expect(writes).toHaveLength(0);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).toMatchObject({
+    content_type: "audio",
+    upload_token: "audio-token",
+    media_metadata: { title: "Introduction recording" },
+    mini_lesson_id: 30,
+  });
+  expect(writes[0]).not.toHaveProperty("media_url");
+  expect(uploadHeaders.authorization).toBeUndefined();
+  expect(uploadHeaders["content-type"]).toBe("audio/wav");
+});
+test("audio title editing preserves metadata and failed replacement keeps the existing player", async ({
+  page,
+}) => {
+  const { writes } = await builder(page, {
+    id: 40,
+    title: "Voice note",
+    content_type: "audio",
+    media_url: null,
+    media_metadata: {
+      title: "Original recording",
+      duration_seconds: 40,
+      format: "wav",
+      size_bytes: 100,
+    },
+    audio_file: { version: 1 },
+  });
+  await expect(
+    page.getByLabel("Content type *", { exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByLabel("Audio title", { exact: true })
+    .fill("Renamed recording");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).not.toHaveProperty("content_type");
+  expect(writes[0]).not.toHaveProperty("media_url");
+  expect(writes[0].media_metadata).toEqual({ title: "Renamed recording" });
+  await page.route(
+    "**/api/v1/tutor/content/mini-lesson-blocks/audio-uploads",
+    (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          data: {
+            method: "PUT",
+            upload_url: "https://audio.example.test/upload",
+            upload_token: "replace-token",
+            headers: { "Content-Type": "audio/wav" },
+            max_size_bytes: 125829120,
+          },
+        },
+      }),
+  );
+  await page.route("https://audio.example.test/upload", (route) =>
+    route.fulfill({ status: 200, body: "" }),
+  );
+  await page.route(
+    "**/api/v1/tutor/content/mini-lesson-blocks/40/audio",
+    (route) =>
+      route.fulfill({
+        status: 422,
+        json: {
+          success: false,
+          error: {
+            code: "AUDIO_DURATION_TOO_LONG",
+            message: "Recording exceeds ten minutes.",
+          },
+        },
+      }),
+  );
+  await page.getByLabel("Audio file", { exact: true }).setInputFiles({
+    name: "long.wav",
+    mimeType: "audio/wav",
+    buffer: Buffer.from("fixture bytes"),
+  });
+  await page
+    .getByRole("button", { name: "Replace recording", exact: true })
+    .click();
+  await expect(page.getByText("Recording exceeds ten minutes.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Play audio", exact: true }),
+  ).toBeEnabled();
+});
 
 test("outline arrows track expansion and the edited branch stays highlighted", async ({
   page,
@@ -476,4 +616,84 @@ test("complete course preview renders stored links and prompts with safe interac
   expect(
     await page.evaluate(() => (window as unknown as { copied: string }).copied),
   ).toBe("Summarize {{topic}}.\n  Keep <tags>.");
+});
+
+test("audio previews request a fresh link on play and resume without autoplay", async ({
+  page,
+}) => {
+  await builder(page, {
+    id: 40,
+    content_type: "audio",
+    media_metadata: {
+      title: "Private recording",
+      duration_seconds: 10,
+      format: "wav",
+    },
+  });
+  let requests = 0;
+  await page.route(
+    "**/api/v1/tutor/content/mini-lesson-blocks/40/audio-url",
+    (route) => {
+      requests++;
+      return route.fulfill({
+        json: {
+          data: {
+            playback_url: `https://audio.example.test/play?v=${requests}`,
+            expires_at: "2030-01-01T00:00:00Z",
+          },
+          success: true,
+        },
+      });
+    },
+  );
+  const wav = Buffer.alloc(44 + 160000);
+  wav.write("RIFF");
+  wav.writeUInt32LE(wav.length - 8, 4);
+  wav.write("WAVEfmt ", 8);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(8000, 24);
+  wav.writeUInt32LE(16000, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36);
+  wav.writeUInt32LE(160000, 40);
+  await page.route("https://audio.example.test/play?*", (route) =>
+    route.fulfill({ contentType: "audio/wav", body: wav }),
+  );
+  expect(requests).toBe(0);
+  await page.getByRole("button", { name: "Play audio", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause audio", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Playback speed").selectOption("1.5");
+  await page.getByRole("button", { name: "Pause audio", exact: true }).click();
+  await page.getByRole("button", { name: "Play audio", exact: true }).click();
+  await expect.poll(() => requests).toBe(2);
+  await expect(
+    page.getByRole("button", { name: "Pause audio", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page
+      .locator(".audio-block audio")
+      .evaluate((el: HTMLAudioElement) => el.playbackRate),
+  ).toBe(1.5);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page
+    .locator(".block-form")
+    .screenshot({ path: "test-results/audio-editor-mobile.png" });
+  const accessibility = await new AxeBuilder({ page })
+    .include(".block-form")
+    .analyze();
+  expect(
+    accessibility.violations.filter((v) =>
+      ["serious", "critical"].includes(v.impact || ""),
+    ),
+  ).toEqual([]);
 });

@@ -1936,3 +1936,21 @@ main#main:has(.builder) {
 .academic-module-picker .actions input { min-width: 0; flex: 1 1 170px; }
 .academic-module-picker select { width: 100%; min-width: 0; }
 .academic-module-summary { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+
+.audio-block, .audio-input {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.audio-block h3, .audio-block p, .audio-input p { margin: 0; }
+.audio-block label, .audio-input > label { display: grid; gap: 8px; }
+.audio-block .actions { align-items: center; }
+.audio-block .actions label { margin-left: auto; min-width: 120px; }
+.audio-block input[type="range"] { width: 100%; padding: 0; }
+.audio-input input[type="file"] { width: 100%; min-width: 0; }
+.audio-input p { color: var(--muted); font-size: 0.9rem; }

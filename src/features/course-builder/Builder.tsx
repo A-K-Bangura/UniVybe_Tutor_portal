@@ -20,7 +20,7 @@ import {
 import { QuizForm } from "./QuizForm";
 import { BlockForm } from "./BlockForm";
 import { blockTitle } from "./blocks";
-import { ChevronRight, Link2, Terminal } from "lucide-react";
+import { ChevronRight, Link2, Terminal, AudioLines } from "lucide-react";
 import { SchemaForm } from "../../shared/forms/SchemaForm";
 import {
   contentFields,
@@ -605,6 +605,9 @@ function Children({
                       item.text_type === "prompt" && (
                         <Terminal size={15} aria-hidden="true" />
                       )}
+                    {item.content_type === "audio" && (
+                      <AudioLines size={14} aria-hidden="true" />
+                    )}
                     {blockTitle(item)}
                   </button>
                   <button

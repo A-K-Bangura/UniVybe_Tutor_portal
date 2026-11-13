@@ -1,6 +1,13 @@
 import { object, str, type RecordData } from "../../shared/api/client";
 
-export const blockTypes = ["text", "image", "video", "embed", "document"];
+export const blockTypes = [
+  "text",
+  "image",
+  "video",
+  "embed",
+  "document",
+  "audio",
+];
 export const textTypes = [
   "plain",
   "simply_put",
@@ -28,6 +35,7 @@ export function blockLink(value: string, maxLength = 2048) {
   }
 }
 export interface BlockValues {
+  audio_title: string;
   content_type: string;
   text_type: string;
   content: string;
@@ -38,6 +46,7 @@ export interface BlockValues {
 }
 export function blockDefaults(initial: RecordData): BlockValues {
   return {
+    audio_title: str(object(initial.media_metadata).title),
     content_type: str(initial.content_type) || "text",
     text_type: str(initial.text_type) || "plain",
     content: str(initial.content),
@@ -47,11 +56,18 @@ export function blockDefaults(initial: RecordData): BlockValues {
         ? ""
         : JSON.stringify(initial.media_metadata, null, 2),
     link_label: str(object(initial.media_metadata).label),
-    is_published: initial.is_published === true,
+    is_published: initial.id
+      ? initial.is_published === true
+      : initial.is_published !== false,
   };
 }
 export function blockIssues(values: BlockValues) {
   const errors: Record<string, string[]> = {};
+  if (values.content_type === "audio") {
+    if (Array.from(values.audio_title).length > 150)
+      errors.audio_title = ["Use at most 150 characters."];
+    return errors;
+  }
   if (!blockTypes.includes(values.content_type))
     errors.content_type = ["Choose a content type."];
   if (values.content_type === "text") {
@@ -102,6 +118,12 @@ export function blockPayload(
   values: BlockValues,
   initial: RecordData,
 ): RecordData {
+  if (values.content_type === "audio")
+    return {
+      ...(!initial.id ? { content_type: "audio" } : {}),
+      is_published: values.is_published,
+      media_metadata: { title: values.audio_title || null },
+    };
   const payload: RecordData = {
     content_type: values.content_type,
     content: values.content,
@@ -146,6 +168,9 @@ export function blockPayload(
 }
 export function blockTitle(data: RecordData) {
   return (
+    (data.content_type === "audio"
+      ? str(object(data.media_metadata).title)
+      : "") ||
     str(data.title || data.question) ||
     (data.content_type === "text" &&
     ["link", "prompt"].includes(str(data.text_type))

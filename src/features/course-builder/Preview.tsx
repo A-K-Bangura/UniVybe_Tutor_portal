@@ -13,7 +13,15 @@ import { Loading, ErrorPanel } from "../../shared/ui/primitives";
 import { MediaPreview, LinkPreviews } from "../../shared/media/MediaPreview";
 import { blockLink } from "./blocks";
 import { AcademicModuleSummary } from "../academic-modules/Summary";
+import { AudioPlayer } from "./AudioPlayer";
 export function Block({ data }: { data: RecordData }) {
+  if (data.content_type === "audio")
+    return (
+      <AudioPlayer
+        key={`${str(data.id)}-${str(object(data.audio_file).version)}-${str(data.updated_at)}`}
+        data={data}
+      />
+    );
   if (data.content_type === "text") {
     if (data.text_type === "link") {
       const destination = blockLink(str(data.content));

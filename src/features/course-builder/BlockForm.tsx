@@ -11,7 +11,18 @@ import {
   type BlockValues,
 } from "./blocks";
 import { Block } from "./Preview";
-import { object, problem, str, type RecordData } from "../../shared/api/client";
+import {
+  ApiError,
+  entity,
+  request,
+  object,
+  problem,
+  str,
+  type RecordData,
+} from "../../shared/api/client";
+import { AudioInput } from "./AudioInput";
+import { AudioPlayer } from "./AudioPlayer";
+import { audioPath, uploadAudio } from "./audio";
 import { DataView, ErrorPanel, Modal } from "../../shared/ui/primitives";
 import { MediaField } from "../../shared/uploads/MediaField";
 
@@ -38,11 +49,16 @@ export function BlockForm({
   const [latest, setLatest] = useState<RecordData>();
   const [checked, setChecked] = useState("");
   const [metadataOpen, setMetadataOpen] = useState(false);
-  const blocker = useBlocker(isDirty && !isSubmitting);
+  const [audioFile, setAudioFile] = useState<File>();
+  const [recording, setRecording] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [progress, setProgress] = useState("");
+  const dirty = isDirty || recording || !!audioFile;
+  const blocker = useBlocker(dirty && !isSubmitting && !replacing);
   useEffect(() => {
-    onDirty(isDirty);
+    onDirty(dirty);
     const warn = (event: BeforeUnloadEvent) => {
-      if (isDirty) {
+      if (dirty) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -52,9 +68,15 @@ export function BlockForm({
       window.removeEventListener("beforeunload", warn);
       onDirty(false);
     };
-  }, [isDirty, onDirty]);
+  }, [dirty, onDirty]);
   const save = form.handleSubmit(async (values) => {
-    if (uncertain) return;
+    if (
+      uncertain ||
+      recording ||
+      replacing ||
+      (initial.id && values.content_type === "audio" && audioFile)
+    )
+      return;
     form.clearErrors();
     const issues = blockIssues(values);
     if (Object.keys(issues).length) {
@@ -67,15 +89,30 @@ export function BlockForm({
     }
     setError(undefined);
     setSaved(false);
+    let commitAttempted = false;
     try {
-      await submit(blockPayload(values, initial));
+      const payload = blockPayload(values, initial);
+      if (values.content_type === "audio" && !initial.id) {
+        if (!audioFile)
+          throw new ApiError("Choose or record an audio file before saving.");
+        payload.upload_token = await uploadAudio(
+          audioFile,
+          setProgress,
+          new AbortController().signal,
+        );
+      }
+      commitAttempted = true;
+      await submit(payload);
+      setAudioFile(undefined);
+      setProgress("");
       form.reset(values);
       setSaved(true);
       if (blocker.state === "blocked") blocker.proceed();
     } catch (err) {
+      setProgress("");
       setError(err);
       if (problem(err).fields.media_metadata) setMetadataOpen(true);
-      if (problem(err).uncertain) setUncertain(true);
+      if (commitAttempted && problem(err).uncertain) setUncertain(true);
       for (const [field, messages] of Object.entries(problem(err).fields))
         form.setError(
           (field === "media_metadata.label"
@@ -86,6 +123,7 @@ export function BlockForm({
     }
   });
   const text = live.content_type === "text",
+    audio = live.content_type === "audio",
     link = text && live.text_type === "link",
     prompt = text && live.text_type === "prompt";
   const destination = link ? blockLink(live.content || "") : undefined;
@@ -174,6 +212,7 @@ export function BlockForm({
                   type="button"
                   onClick={() => {
                     form.reset(blockDefaults(latest));
+                    setAudioFile(undefined);
                     setUncertain(false);
                     setError(undefined);
                     setLatest(undefined);
@@ -186,17 +225,25 @@ export function BlockForm({
             )}
           </section>
         )}
-        <fieldset disabled={isSubmitting} className="block-fields">
+        <fieldset disabled={isSubmitting || replacing} className="block-fields">
           <div className="form-grid">
             <div className="field">
               <label htmlFor="block-content-type">Content type *</label>
               <select
                 id="block-content-type"
+                disabled={initial.content_type === "audio" || recording}
                 {...form.register("content_type")}
               >
-                {blockTypes.map((type) => (
-                  <option key={type}>{type}</option>
-                ))}
+                {blockTypes
+                  .filter(
+                    (type) =>
+                      !initial.id ||
+                      initial.content_type === "audio" ||
+                      type !== "audio",
+                  )
+                  .map((type) => (
+                    <option key={type}>{type}</option>
+                  ))}
               </select>
               {fieldError("content_type")}
             </div>
@@ -213,63 +260,133 @@ export function BlockForm({
                 {fieldError("text_type")}
               </div>
             )}
-            <div className="field wide">
-              <label htmlFor="block-content">
-                {link ? "Link URL" : prompt ? "Prompt text" : "Content"}
-              </label>
-              {link ? (
+            {audio && (
+              <div className="field wide">
+                <label htmlFor="audio-title">Audio title</label>
                 <input
-                  id="block-content"
-                  type="text"
-                  inputMode="url"
-                  {...form.register("content")}
+                  id="audio-title"
+                  maxLength={150}
+                  {...form.register("audio_title")}
                 />
-              ) : (
-                <textarea
-                  id="block-content"
-                  className={prompt ? "prompt-editor" : undefined}
-                  rows={prompt ? 12 : 5}
-                  spellCheck={prompt ? false : undefined}
-                  {...form.register("content")}
+                {fieldError("audio_title")}
+                <AudioInput
+                  file={audioFile}
+                  onChange={setAudioFile}
+                  onRecording={setRecording}
                 />
-              )}
-              {fieldError("content")}
-              {prompt && (
-                <>
-                  <small>
-                    Plain text for students to copy. Line breaks, indentation,
-                    tags, placeholders and code are preserved. The API trims
-                    only outer whitespace.
-                  </small>
-                  <span className="muted" role="status">
-                    {Array.from(live.content || "").length.toLocaleString()}{" "}
-                    characters
-                  </span>
-                </>
-              )}
-              {link && (
-                <>
-                  <small>
-                    One HTTP or HTTPS URL, up to 2048 characters. No
-                    credentials, spaces or line breaks.
-                  </small>
-                  {destination ? (
-                    <a
-                      className="button"
-                      href={destination.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                {!!initial.id && (
+                  <>
+                    <p>
+                      Save title and publishing edits separately. Replacing the
+                      recording keeps the current title and block position.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={!audioFile || recording || uncertain}
+                      onClick={async () => {
+                        if (!audioFile) return;
+                        setReplacing(true);
+                        setError(undefined);
+                        let replacementAttempted = false;
+                        try {
+                          const token = await uploadAudio(
+                            audioFile,
+                            setProgress,
+                            new AbortController().signal,
+                          );
+                          replacementAttempted = true;
+                          const updated = entity(
+                            await request(
+                              `${audioPath}/${encodeURIComponent(str(initial.id))}/audio`,
+                              "POST",
+                              { upload_token: token },
+                            ),
+                            "block",
+                          );
+                          setAudioFile(undefined);
+                          setProgress("Recording replaced.");
+                          onLoaded(updated);
+                          await checkLatest();
+                        } catch (e) {
+                          setProgress("");
+                          setError(e);
+                          if (replacementAttempted && problem(e).uncertain)
+                            setUncertain(true);
+                        } finally {
+                          setReplacing(false);
+                        }
+                      }}
                     >
-                      Check link
-                    </a>
-                  ) : (
-                    <button type="button" disabled>
-                      Check link
+                      Replace recording
                     </button>
-                  )}
-                </>
-              )}
-            </div>
+                    <AudioPlayer
+                      key={`${str(object(initial.audio_file).version)}-${str(initial.updated_at)}`}
+                      data={initial}
+                    />
+                  </>
+                )}
+                {progress && <p role="status">{progress}</p>}
+              </div>
+            )}
+            {!audio && (
+              <div className="field wide">
+                <label htmlFor="block-content">
+                  {link ? "Link URL" : prompt ? "Prompt text" : "Content"}
+                </label>
+                {link ? (
+                  <input
+                    id="block-content"
+                    type="text"
+                    inputMode="url"
+                    {...form.register("content")}
+                  />
+                ) : (
+                  <textarea
+                    id="block-content"
+                    className={prompt ? "prompt-editor" : undefined}
+                    rows={prompt ? 12 : 5}
+                    spellCheck={prompt ? false : undefined}
+                    {...form.register("content")}
+                  />
+                )}
+                {fieldError("content")}
+                {prompt && (
+                  <>
+                    <small>
+                      Plain text for students to copy. Line breaks, indentation,
+                      tags, placeholders and code are preserved. The API trims
+                      only outer whitespace.
+                    </small>
+                    <span className="muted" role="status">
+                      {Array.from(live.content || "").length.toLocaleString()}{" "}
+                      characters
+                    </span>
+                  </>
+                )}
+                {link && (
+                  <>
+                    <small>
+                      One HTTP or HTTPS URL, up to 2048 characters. No
+                      credentials, spaces or line breaks.
+                    </small>
+                    {destination ? (
+                      <a
+                        className="button"
+                        href={destination.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Check link
+                      </a>
+                    ) : (
+                      <button type="button" disabled>
+                        Check link
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {link && (
               <div className="field wide">
                 <label htmlFor="block-link-label">Link label</label>
@@ -282,7 +399,7 @@ export function BlockForm({
                 {fieldError("link_label")}
               </div>
             )}
-            {!text && (
+            {!text && !audio && (
               <div className="field wide">
                 <label htmlFor="block-media-url">Media url</label>
                 <input id="block-media-url" {...form.register("media_url")} />
@@ -299,7 +416,7 @@ export function BlockForm({
                 />
               </div>
             )}
-            {!link && !prompt && (
+            {!audio && !link && !prompt && (
               <details
                 className="field wide"
                 open={metadataOpen}
@@ -327,24 +444,29 @@ export function BlockForm({
             </label>
           </div>
         </fieldset>
-        <section className="form-section" aria-label="Block preview">
-          <h3>Local presentation preview</h3>
-          <Block
-            data={{
-              ...live,
-              media_metadata: link
-                ? { ...object(initial.media_metadata), label: live.link_label }
-                : prompt
-                  ? null
-                  : live.media_metadata,
-            }}
-          />
-        </section>
+        {!audio && (
+          <section className="form-section" aria-label="Block preview">
+            <h3>Local presentation preview</h3>
+            <Block
+              data={{
+                ...live,
+                media_metadata: link
+                  ? {
+                      ...object(initial.media_metadata),
+                      label: live.link_label,
+                    }
+                  : prompt
+                    ? null
+                    : live.media_metadata,
+              }}
+            />
+          </section>
+        )}
         <div className="save-bar">
           <span role="status">
             {isSubmitting
               ? "Saving…"
-              : isDirty
+              : dirty
                 ? "Unsaved changes"
                 : saved
                   ? "Saved and confirmed"
@@ -353,7 +475,13 @@ export function BlockForm({
           <button
             className="primary"
             type="submit"
-            disabled={isSubmitting || uncertain}
+            disabled={
+              isSubmitting ||
+              uncertain ||
+              recording ||
+              replacing ||
+              (!!initial.id && audio && !!audioFile)
+            }
           >
             {isSubmitting ? "Saving…" : "Save changes"}
           </button>
@@ -381,7 +509,12 @@ export function BlockForm({
           </button>
           <button
             className="primary"
-            disabled={uncertain}
+            disabled={
+              uncertain ||
+              recording ||
+              replacing ||
+              (!!initial.id && audio && !!audioFile)
+            }
             onClick={() => void save()}
           >
             Save and leave
