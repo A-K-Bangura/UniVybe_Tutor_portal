@@ -14,6 +14,7 @@ import { MediaPreview, LinkPreviews } from "../../shared/media/MediaPreview";
 import { blockLink } from "./blocks";
 import { AcademicModuleSummary } from "../academic-modules/Summary";
 import { AudioPlayer } from "./AudioPlayer";
+import { hasHtml, lessonHtml, lessonText } from "./richText";
 export function Block({ data }: { data: RecordData }) {
   if (data.content_type === "audio")
     return (
@@ -67,8 +68,15 @@ export function Block({ data }: { data: RecordData }) {
             ? str(data.text_type).replaceAll("_", " ")
             : ""}
         </small>
-        <p className="prewrap">{str(data.content)}</p>
-        <LinkPreviews content={str(data.content)} />
+        {hasHtml(str(data.content)) ? (
+          <div
+            className="lesson-html"
+            dangerouslySetInnerHTML={{ __html: lessonHtml(str(data.content)) }}
+          />
+        ) : (
+          <p className="prewrap">{str(data.content)}</p>
+        )}
+        <LinkPreviews content={lessonText(str(data.content))} />
       </div>
     );
   }

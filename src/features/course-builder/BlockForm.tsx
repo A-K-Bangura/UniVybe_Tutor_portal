@@ -25,6 +25,8 @@ import { AudioPlayer } from "./AudioPlayer";
 import { audioPath, uploadAudio } from "./audio";
 import { DataView, ErrorPanel, Modal } from "../../shared/ui/primitives";
 import { MediaField } from "../../shared/uploads/MediaField";
+import { LessonRichText } from "./LessonRichText";
+import { hasHtml, lessonText, richTextTypes } from "./richText";
 
 export function BlockForm({
   initial,
@@ -53,6 +55,8 @@ export function BlockForm({
   const [recording, setRecording] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [progress, setProgress] = useState("");
+  const [pendingType, setPendingType] = useState("");
+  const [richBackup, setRichBackup] = useState("");
   const dirty = isDirty || recording || !!audioFile;
   const blocker = useBlocker(dirty && !isSubmitting && !replacing);
   useEffect(() => {
@@ -250,7 +254,23 @@ export function BlockForm({
             {text && (
               <div className="field">
                 <label htmlFor="block-text-type">Text type</label>
-                <select id="block-text-type" {...form.register("text_type")}>
+                <select
+                  id="block-text-type"
+                  {...form.register("text_type")}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    if (
+                      richTextTypes.includes(live.text_type) &&
+                      !richTextTypes.includes(next) &&
+                      hasHtml(live.content)
+                    ) {
+                      setPendingType(next);
+                      return;
+                    }
+                    form.setValue("text_type", next, { shouldDirty: true });
+                  }}
+                  value={live.text_type}
+                >
                   {textTypes.map((type) => (
                     <option key={type} value={type}>
                       {type.replaceAll("_", " ")}
@@ -340,6 +360,15 @@ export function BlockForm({
                     inputMode="url"
                     {...form.register("content")}
                   />
+                ) : text && richTextTypes.includes(live.text_type) ? (
+                  <LessonRichText
+                    value={live.content || ""}
+                    disabled={isSubmitting || replacing}
+                    invalid={!!errors.content}
+                    onChange={(value) =>
+                      form.setValue("content", value, { shouldDirty: true })
+                    }
+                  />
                 ) : (
                   <textarea
                     id="block-content"
@@ -350,6 +379,22 @@ export function BlockForm({
                   />
                 )}
                 {fieldError("content")}
+                {richBackup && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      form.setValue("text_type", "plain", {
+                        shouldDirty: true,
+                      });
+                      form.setValue("content", richBackup, {
+                        shouldDirty: true,
+                      });
+                      setRichBackup("");
+                    }}
+                  >
+                    Restore formatted draft
+                  </button>
+                )}
                 {prompt && (
                   <>
                     <small>
@@ -487,6 +532,36 @@ export function BlockForm({
           </button>
         </div>
       </form>
+      <Modal
+        title="Convert formatted content?"
+        open={!!pendingType}
+        onClose={() => setPendingType("")}
+      >
+        <p>
+          {pendingType} blocks use literal text. Converting removes formatting;
+          a copy of your formatted draft will remain available here until you
+          leave this editor.
+        </p>
+        <pre className="prewrap">{lessonText(live.content || "")}</pre>
+        <div className="actions">
+          <button type="button" onClick={() => setPendingType("")}>
+            Keep rich text
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRichBackup(live.content);
+              form.setValue("content", lessonText(live.content), {
+                shouldDirty: true,
+              });
+              form.setValue("text_type", pendingType, { shouldDirty: true });
+              setPendingType("");
+            }}
+          >
+            Convert to literal text
+          </button>
+        </div>
+      </Modal>
       <Modal
         title="You have unsaved changes"
         open={blocker.state === "blocked"}

@@ -2,6 +2,139 @@ import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 type RecordData = Record<string, unknown>;
+
+test("paste is normalized and callouts retain supported HTML at mobile widths", async ({
+  page,
+}, testInfo) => {
+  const { writes } = await builder(page);
+  const editor = page.getByRole("textbox", { name: "Content", exact: true });
+  await editor.click();
+  await editor.evaluate((element) => {
+    const data = new DataTransfer();
+    data.setData(
+      "text/html",
+      '<h3>Study &amp; learn</h3><p><span style="font-weight:700">Bold</span> <em>italic</em> <u>underline</u> <s>strike</s> <code>x&lt;5</code></p><ul><li>One</li><li>Two</li></ul><ol><li>Three</li></ol><blockquote>A quote</blockquote><p><a href="https://example.org/">Useful link</a></p><img src=x onerror="window.unsafePaste=true"><a href="javascript:alert(1)">Unsafe link</a>',
+    );
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: data,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  await expect(editor.locator("h3")).toHaveText("Study & learn");
+  await expect(editor.locator("p strong")).toHaveText("Bold");
+  await expect(editor.locator("ul li")).toHaveCount(2);
+  await expect(
+    editor.locator("img,script,iframe,a[href^='javascript:']"),
+  ).toHaveCount(0);
+  for (const type of ["plain", "remember", "simply_put", "important"]) {
+    await page.getByLabel("Text type", { exact: true }).selectOption(type);
+    const preview = page.locator(".lesson-html");
+    await expect(preview.locator("ul")).toHaveCSS("list-style-type", "disc");
+    await expect(preview.locator("ol")).toHaveCSS("list-style-type", "decimal");
+    await page
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect
+      .poll(() => writes.length)
+      .toBe(["plain", "remember", "simply_put", "important"].indexOf(type) + 1);
+    expect(writes.at(-1)?.content).not.toMatch(
+      /onerror|javascript:|<img|font-weight:700.*span/,
+    );
+  }
+  for (const width of [320, 375]) {
+    await page.setViewportSize({ width, height: 812 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page
+      .locator(".block-form")
+      .screenshot({ path: testInfo.outputPath(`rich-paste-${width}.png`) });
+  }
+  await editor.click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page
+    .getByRole("button", { name: "Clear formatting", exact: true })
+    .click();
+  await expect(
+    editor.locator("strong,em,u,s,code,h3,ul,ol,blockquote,a"),
+  ).toHaveCount(0);
+});
+
+test("rich lesson formatting stays local, saves, reopens and converts explicitly", async ({
+  page,
+}, testInfo) => {
+  const { writes } = await builder(page, {
+    id: 40,
+    content_type: "text",
+    text_type: "plain",
+    content: "Hello learning",
+  });
+  const editor = page.getByRole("textbox", { name: "Content", exact: true });
+  await editor.click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page
+    .getByRole("button", { name: "Bold (Ctrl/Cmd+B)", exact: true })
+    .click();
+  await expect(editor.locator("strong")).toHaveText("Hello learning");
+  await page.getByLabel("Paragraph style").selectOption("2");
+  await page.getByRole("button", { name: "Align center", exact: true }).click();
+  expect(writes).toHaveLength(0);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].content).toContain("font-size:1.5em");
+  expect(writes[0].content).toContain("text-align:center");
+  await page.reload();
+  for (const name of ["Module", "Lesson", "Mini lesson"])
+    await page
+      .getByRole("button", { name: `Expand ${name}`, exact: true })
+      .click();
+  await page.getByRole("button", { name: "text block", exact: true }).click();
+  await expect(editor.locator("h2 strong")).toHaveText("Hello learning");
+  await page.getByLabel("Text type", { exact: true }).selectOption("formula");
+  await expect(
+    page.getByRole("dialog", { name: "Convert formatted content?" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Keep rich text", exact: true })
+    .click();
+  await expect(editor.locator("h2 strong")).toHaveText("Hello learning");
+  await page.getByLabel("Text type", { exact: true }).selectOption("prompt");
+  await page
+    .getByRole("button", { name: "Convert to literal text", exact: true })
+    .click();
+  await expect(page.getByLabel("Prompt text", { exact: true })).toHaveValue(
+    "Hello learning",
+  );
+  await expect(
+    page.getByRole("group", { name: "Text formatting" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Restore formatted draft", exact: true })
+    .click();
+  await expect(editor.locator("h2 strong")).toHaveText("Hello learning");
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page
+    .locator(".block-form")
+    .screenshot({ path: testInfo.outputPath("rich-editor-mobile.png") });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  const result = await new AxeBuilder({ page })
+    .include(".block-form")
+    .analyze();
+  expect(
+    result.violations.filter((v) =>
+      ["critical", "serious"].includes(v.impact || ""),
+    ),
+  ).toEqual([]);
+});
 async function builder(
   page: Page,
   block?: RecordData,

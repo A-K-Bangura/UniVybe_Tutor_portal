@@ -1,4 +1,5 @@
 import { object, str, type RecordData } from "../../shared/api/client";
+import { hasHtml, lessonHtml, lessonText, richTextTypes } from "./richText";
 
 export const blockTypes = [
   "text",
@@ -73,7 +74,11 @@ export function blockIssues(values: BlockValues) {
   if (values.content_type === "text") {
     if (!textTypes.includes(values.text_type))
       errors.text_type = ["Choose a text type."];
-    if (!values.content.trim())
+    if (
+      !(richTextTypes.includes(values.text_type)
+        ? lessonText(values.content).trim()
+        : values.content.trim())
+    )
       errors.content = [
         values.text_type === "formula"
           ? "Formula blocks need non-empty LaTeX. Delete the block to remove a formula."
@@ -126,7 +131,12 @@ export function blockPayload(
     };
   const payload: RecordData = {
     content_type: values.content_type,
-    content: values.content,
+    content:
+      values.content_type === "text" &&
+      richTextTypes.includes(values.text_type) &&
+      hasHtml(values.content)
+        ? lessonHtml(values.content)
+        : values.content,
     is_published: values.is_published,
   };
   const text = values.content_type === "text",

@@ -1371,6 +1371,75 @@ td small {
   list-style: decimal;
   padding-left: 25px;
 }
+.lesson-rich-editor {
+  min-width: 0;
+  padding: 8px;
+}
+.lesson-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #94a3b8;
+}
+.lesson-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 6px;
+}
+.lesson-toolbar button[aria-pressed="true"] {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #3b82f6;
+}
+.lesson-toolbar select {
+  width: auto;
+  max-width: 100%;
+}
+.lesson-rich-editor .tiptap,
+.lesson-html {
+  overflow-wrap: anywhere;
+  min-width: 0;
+  line-height: 1.6;
+}
+.lesson-rich-editor .tiptap:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+.lesson-rich-editor .tiptap h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 16px 0 12px;
+}
+.lesson-rich-editor .tiptap h3 {
+  font-size: 1.25em;
+  font-weight: 700;
+  margin: 14px 0 10px;
+}
+.lesson-rich-editor .tiptap h4 {
+  font-size: 1.125em;
+  font-weight: 600;
+  margin: 12px 0 8px;
+}
+.lesson-rich-editor .tiptap p {
+  margin: 0 0 12px;
+}
+.lesson-rich-editor .tiptap blockquote {
+  margin: 0 0 12px;
+  padding-left: 12px;
+  border-left: 3px solid #94a3b8;
+}
+.lesson-rich-editor .tiptap pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.lesson-rich-editor .tiptap code {
+  font-family: monospace;
+  font-size: 0.9em;
+}
 .opportunity-preview > section {
   margin: 25px 0;
 }
