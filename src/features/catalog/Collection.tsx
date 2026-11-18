@@ -25,6 +25,7 @@ import { contentLevelOptions, levelLabel } from "../courses/levels";
 import { AcademicModulePicker } from "../academic-modules/Picker";
 import { AcademicContextFilters } from "../academic-modules/Filters";
 import { AcademicModuleSummary } from "../academic-modules/Summary";
+import { InstitutionSelect } from "../users/InstitutionSelect";
 const statuses: Record<string, string[]> = {
   courses: ["draft", "pending_approval", "published", "rejected"],
   resources: ["pending_approval", "approved", "rejected"],
@@ -161,7 +162,15 @@ export default function Collection({
               aria-controls="people-results"
               tabIndex={userType === tab.value ? 0 : -1}
               className={userType === tab.value ? "selected" : undefined}
-              onClick={() => set("user_type", tab.value)}
+              onClick={() => {
+                const next = new URLSearchParams(params);
+                next.set("user_type", tab.value);
+                next.set("status", "");
+                next.delete("role");
+                next.delete("level");
+                next.delete("page");
+                setParams(next);
+              }}
               onKeyDown={(event) => {
                 if (
                   !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
@@ -179,7 +188,13 @@ export default function Collection({
                         ? "creation_user"
                         : "student";
                 document.getElementById(`people-tab-${target}`)?.focus();
-                set("user_type", target);
+                const next = new URLSearchParams(params);
+                next.set("user_type", target);
+                next.set("status", "");
+                next.delete("role");
+                next.delete("level");
+                next.delete("page");
+                setParams(next);
               }}
             >
               {tab.title}
@@ -215,7 +230,12 @@ export default function Collection({
               onChange={(e) => set("status", e.target.value)}
             >
               <option value="">All statuses</option>
-              {statuses[kind].map((s) => (
+              {(people
+                ? userType === "student"
+                  ? ["active", "pending", "suspended"]
+                  : ["pending", "approved", "rejected", "suspended"]
+                : statuses[kind]
+              ).map((s) => (
                 <option key={s} value={s}>
                   {label(s)}
                 </option>
@@ -270,7 +290,41 @@ export default function Collection({
             </>
           )}
         </div>
-        {academicFilters && (
+        {people && (
+          <div className="toolbar">
+            <InstitutionSelect
+              value={params.get("organization_id") || ""}
+              onChange={(value) => set("organization_id", value)}
+            />
+            {userType === "student" && (
+              <label>
+                Student level
+                <select
+                  aria-label="Student level filter"
+                  value={params.get("level") || ""}
+                  onChange={(e) => set("level", e.target.value)}
+                >
+                  <option value="">All levels</option>
+                  {[
+                    "UnderGrad",
+                    "100",
+                    "200",
+                    "300",
+                    "400",
+                    "500",
+                    "graduate",
+                  ].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <Link className="button" to="/ambassadors">
+              Campus ambassadors
+            </Link>
+          </div>
+        )}
+        {(academicFilters || people) && (
           <AcademicContextFilters
             values={Object.fromEntries(params)}
             onChange={setMany}
@@ -511,7 +565,8 @@ export default function Collection({
             )}
             <div className="pagination">
               <span>
-                {q.data.total} records · Page {q.data.current} of {q.data.last}
+                {q.data.total} records · Page {q.data.current} of{" "}
+                {Math.max(1, q.data.last)}
               </span>
               <div className="actions">
                 <button

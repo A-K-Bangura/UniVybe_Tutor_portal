@@ -22,6 +22,7 @@ const GigsList = lazy(() => import("../features/gigs/List")),
   GigCategories = lazy(() => import("../features/gigs/Categories"));
 const Guidance = lazy(() => import("../features/guidance/Guidance"));
 const UserEditor = lazy(() => import("../features/users/UserEditor"));
+const Ambassadors = lazy(() => import("../features/ambassadors/Ambassadors"));
 function Guard({ area }: { area?: string }) {
   const s = useSession();
   if (s.state === "booting") return <Loading />;
@@ -73,6 +74,15 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: "dashboard", element: <Dashboard /> },
+          {
+            element: <Guard area="ambassadors" />,
+            children: [
+              { path: "ambassadors", element: <Ambassadors /> },
+              { path: "ambassadors/:id", element: <Ambassadors /> },
+              { path: "referrals", element: <Ambassadors referrals /> },
+              { path: "referrals/:id", element: <Ambassadors referrals /> },
+            ],
+          },
           {
             element: <Guard area="guidance" />,
             children: [

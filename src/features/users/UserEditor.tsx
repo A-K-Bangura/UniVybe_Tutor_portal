@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "../../shared/auth/session";
 import {
@@ -84,6 +84,16 @@ export default function UserEditor() {
         title={id ? str(target.full_name || target.email) : "Create user"}
       >
         <Badge value={target.status} />
+        {id &&
+          student &&
+          ["admin", "super_admin"].includes(actor.role.name) && (
+            <Link
+              className="button primary"
+              to={`/ambassadors/new?student_id=${encodeURIComponent(targetKey)}`}
+            >
+              Designate ambassador
+            </Link>
+          )}
       </Header>
       {notice && (
         <p className="notice" role="status">

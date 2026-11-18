@@ -1954,3 +1954,35 @@ main#main:has(.builder) {
 .audio-block input[type="range"] { width: 100%; padding: 0; }
 .audio-input input[type="file"] { width: 100%; min-width: 0; }
 .audio-input p { color: var(--muted); font-size: 0.9rem; }
+
+.ambassador-filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+.ambassador-filters label { display: grid; gap: 6px; flex: 1 1 190px; min-width: 0; }
+.ambassador-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0; }
+.ambassador-stats .panel { margin: 0; display: grid; gap: 12px; }
+.ambassador-stats strong { font-size: 1.6rem; }
+
+.panel .data-fields dt { color: var(--text); }
+.panel .data-grid dt { color: var(--text); }
+
+.designation-panel { max-width: 1000px; }
+.designation-intro { margin-bottom: 22px; }
+.designation-intro h2, .designation-heading h3 { margin: 0 0 8px; }
+.designation-intro p, .designation-heading p, .designation-result p { margin: 0; color: var(--text-muted); }
+.designation-search { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 24px; }
+.designation-search label { display: grid; gap: 8px; flex: 1 1 260px; max-width: 520px; }
+.designation-search button { flex: 0 0 auto; align-self: end; }
+.designation-result { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; border-top: 1px solid var(--border); }
+.designation-result > div { min-width: 0; overflow-wrap: anywhere; }
+.designation-result button { flex: 0 0 auto; }
+.designation-form { display: grid; gap: 20px; border-top: 1px solid var(--border); padding-top: 24px; margin-top: 20px; }
+.designation-heading { overflow-wrap: anywhere; }
+.designation-heading .button { margin-top: 12px; }
+.designation-form label { display: grid; gap: 8px; min-width: 0; }
+.designation-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+.designation-form input, .designation-form select, .designation-form textarea { width: 100%; }
+.designation-help { margin: -8px 0 0; color: var(--text-muted); }
+.designation-form textarea { min-height: 100px; resize: vertical; }
+.designation-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; border-top: 1px solid var(--border); padding-top: 18px; }
+.designation-footer p { flex: 1 1 250px; color: var(--text-muted); margin: 0; }
+.designation-footer button { flex: 0 0 auto; align-self: center; }
+@media (max-width: 600px) { .designation-fields { grid-template-columns: minmax(0,1fr); } .designation-search label { max-width: none; } }
