@@ -12,6 +12,7 @@ import {
 import { problem, str, type RecordData } from "../../shared/api/client";
 import { ErrorPanel, Modal } from "../../shared/ui/primitives";
 import { QuizMediaPreview } from "./Preview";
+import { MediaField } from "../../shared/uploads/MediaField";
 
 export function QuizForm({
   initial,
@@ -44,11 +45,13 @@ export function QuizForm({
     [checkedMessage, setCheckedMessage] = useState(""),
     [extrasOpen, setExtrasOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false);
-  const blocker = useBlocker(isDirty && !isSubmitting);
+  const [imageUploading, setImageUploading] = useState(false);
+  const dirty = isDirty || imageUploading;
+  const blocker = useBlocker(dirty && !isSubmitting);
   useEffect(() => {
-    onDirty(isDirty);
+    onDirty(dirty);
     const warn = (event: BeforeUnloadEvent) => {
-      if (isDirty) {
+      if (dirty) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -58,7 +61,7 @@ export function QuizForm({
       window.removeEventListener("beforeunload", warn);
       onDirty(false);
     };
-  }, [isDirty, onDirty]);
+  }, [dirty, onDirty]);
   const showInvalidSections = (names: string[]) => {
     if (names.some((name) => ["image_url", "explanation"].includes(name)))
       setExtrasOpen(true);
@@ -71,7 +74,7 @@ export function QuizForm({
   };
   const save = form.handleSubmit(
     async (values) => {
-      if (uncertain) return;
+      if (uncertain || imageUploading) return;
       setError(undefined);
       setSaved(false);
       try {
@@ -419,6 +422,7 @@ export function QuizForm({
               Image URL
               <input
                 aria-label="Quiz image URL"
+                disabled={imageUploading}
                 {...form.register("image_url")}
               />
             </label>
@@ -427,6 +431,22 @@ export function QuizForm({
                 {errors.image_url.message}
               </p>
             )}
+            <MediaField
+              purpose="lesson_media"
+              label="Upload quiz image"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onUploadingChange={setImageUploading}
+              onComplete={(url) =>
+                form.setValue("image_url", url, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+            />
+            <small className="muted">
+              Upload an image from your device or paste an image URL above. Save
+              the quiz to keep your changes.
+            </small>
             <QuizMediaPreview
               data={{ image_url: live.image_url, question: live.question }}
             />
@@ -515,18 +535,20 @@ export function QuizForm({
         </fieldset>
         <div className="save-bar">
           <span role="status">
-            {isSubmitting
-              ? "Saving…"
-              : isDirty
-                ? "Unsaved changes"
-                : saved
-                  ? "Saved and confirmed"
-                  : "Ready to edit"}
+            {imageUploading
+              ? "Uploading image…"
+              : isSubmitting
+                ? "Saving…"
+                : isDirty
+                  ? "Unsaved changes"
+                  : saved
+                    ? "Saved and confirmed"
+                    : "Ready to edit"}
           </span>
           <button
             type="submit"
             className="primary"
-            disabled={isSubmitting || uncertain}
+            disabled={isSubmitting || uncertain || imageUploading}
           >
             {isSubmitting
               ? "Saving…"
@@ -558,7 +580,7 @@ export function QuizForm({
           </button>
           <button
             className="primary"
-            disabled={uncertain}
+            disabled={uncertain || imageUploading}
             onClick={() => void save()}
           >
             Save and leave

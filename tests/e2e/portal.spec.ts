@@ -1845,6 +1845,128 @@ async function quizBuilderFixture(
   await expect(page.getByLabel("Quiz type", { exact: true })).toBeVisible();
 }
 
+test("quiz images upload locally, retain the URL on failure, and save the registered image", async ({
+  page,
+}) => {
+  await quizBuilderFixture(page);
+  await page
+    .getByLabel("Quiz type", { exact: true })
+    .selectOption("short_answer");
+  await page
+    .getByLabel("Quiz question", { exact: true })
+    .fill("What does the diagram show?");
+  await page.getByLabel("Accepted answer", { exact: true }).fill("A circuit");
+  await page
+    .getByText("Explanation and image (optional)", { exact: true })
+    .click();
+  const imageUrl = page.getByLabel("Quiz image URL", { exact: true });
+  await imageUrl.fill("https://example.org/original.png");
+  let transfers = 0;
+  let registrations = 0;
+  let releaseUpload: (() => void) | undefined;
+  const uploading = new Promise<void>((resolve) => {
+    releaseUpload = resolve;
+  });
+  const uploadedUrl =
+    "https://res.cloudinary.com/fixture/image/upload/circuit.png";
+  await page.route("**/api/v1/upload/presign", async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      purpose: "lesson_media",
+      file_type: "image/png",
+    });
+    await route.fulfill({
+      json: {
+        success: true,
+        data: {
+          cloud_name: "fixture",
+          signature: "fixture-signature",
+          api_key: "fixture-key",
+          resource_type: "image",
+          timestamp: 1,
+          allowed_types: ["image/png"],
+          max_size_bytes: 5242880,
+        },
+      },
+    });
+  });
+  await page.route(
+    "https://api.cloudinary.com/v1_1/fixture/image/upload",
+    async (route) => {
+      transfers++;
+      if (transfers === 1) {
+        await route.fulfill({ status: 500, json: { error: "Upload failed" } });
+        return;
+      }
+      await uploading;
+      await route.fulfill({
+        json: { secure_url: uploadedUrl, public_id: "circuit" },
+      });
+    },
+  );
+  await page.route("**/api/v1/upload/store-metadata", async (route) => {
+    registrations++;
+    expect(route.request().postDataJSON()).toMatchObject({
+      purpose: "lesson_media",
+      cloudinary_data: { secure_url: uploadedUrl },
+    });
+    await route.fulfill({ json: { success: true, data: {} } });
+  });
+  const writes: Record<string, unknown>[] = [];
+  await page.route("**/api/v1/tutor/content/quizzes", async (route) => {
+    const body = route.request().postDataJSON();
+    writes.push(body);
+    await route.fulfill({
+      status: 201,
+      json: { success: true, data: { quiz: { ...body, id: 41 } } },
+    });
+  });
+  const file = {
+    name: "circuit.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jN1cAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  };
+  const picker = page.getByLabel("Upload quiz image", { exact: true });
+  await picker.setInputFiles({
+    name: "clip.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("video"),
+  });
+  await expect(
+    page.getByText("Choose a supported image file.", { exact: true }),
+  ).toBeVisible();
+  expect(transfers).toBe(0);
+  await picker.setInputFiles(file);
+  await expect(
+    page.getByText("Upload incomplete. Your editor values are retained.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(imageUrl).toHaveValue("https://example.org/original.png");
+  expect(registrations).toBe(0);
+  await picker.setInputFiles(file);
+  await expect(
+    page.getByRole("button", { name: "Create quiz", exact: true }),
+  ).toBeDisabled();
+  expect(writes).toHaveLength(0);
+  releaseUpload?.();
+  await expect(imageUrl).toHaveValue(uploadedUrl);
+  await expect(page.locator(".quiz-form img").first()).toHaveAttribute(
+    "src",
+    uploadedUrl,
+  );
+  expect(registrations).toBe(1);
+  await page.getByRole("button", { name: "Create quiz", exact: true }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).toMatchObject({
+    image_url: uploadedUrl,
+    lesson_id: 20,
+    question: "What does the diagram show?",
+  });
+});
+
 test("quiz creation is type aware, sends checked choices and preserves rejected drafts", async ({
   page,
 }) => {
