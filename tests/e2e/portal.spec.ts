@@ -950,7 +950,7 @@ test("roadmap institution and creator filters use verified keys and reset depend
   await page.getByLabel("Course faculty filter").selectOption("10");
   await page.getByLabel("Course department filter").selectOption("20");
   await page.getByLabel("Course organization filter").selectOption("7");
-  await page.getByLabel("Course semester filter").fill("First Semester");
+  await page.getByLabel("Course semester filter").selectOption("first");
   await page.getByLabel("Course creator search").fill("Amina");
   await page
     .getByRole("button", { name: "Find creators", exact: true })
@@ -973,7 +973,7 @@ test("roadmap institution and creator filters use verified keys and reset depend
     status: "published",
     level: "100",
     organization_id: "7",
-    semester: "First Semester",
+    semester: "first",
   });
   expect(queries[0].has("creator_id")).toBe(false);
   await page.getByLabel("Course university filter").selectOption("2");
@@ -1136,7 +1136,7 @@ test("resource attachments fetch only on request and retain detailed selections 
     tags: ["digital", "logic"],
     academic_context: {
       level: "200",
-      semester: "First Semester",
+      semester: "first",
       university: { id: 1, name: "University One" },
     },
     file: {
@@ -1246,7 +1246,7 @@ test("resource attachments fetch only on request and retain detailed selections 
   await panel.getByText("More resource filters", { exact: true }).click();
   await panel.getByLabel("Resource subject filter").fill("Electronics");
   await panel.getByLabel("Resource tags filter").fill("digital, logic");
-  await panel.getByLabel("Resource semester filter").fill("First Semester");
+  await panel.getByLabel("Resource semester filter").selectOption("first");
   await panel.getByLabel("Resource publication_year filter").fill("2025");
   expect(queries).toHaveLength(0);
   await panel
@@ -1264,7 +1264,7 @@ test("resource attachments fetch only on request and retain detailed selections 
     source_type: "file",
     format: "pdf",
     subject: "Electronics",
-    semester: "First Semester",
+    semester: "first",
     publication_year: "2025",
   });
   expect(queries[0].getAll("tags[]")).toEqual(["digital", "logic"]);

@@ -6,6 +6,7 @@ import { ErrorPanel } from "../../shared/ui/primitives";
 import type { CourseFilterValues } from "./course-filter-values";
 import { contentLevelOptions } from "../courses/levels";
 import { AcademicModulePicker } from "../academic-modules/Picker";
+import { semesterOptions } from "../../shared/forms/semesters";
 
 async function institutions(path: string, signal: AbortSignal) {
   const items: RecordData[] = [];
@@ -134,15 +135,20 @@ export function CourseFilters({
           )}
         </label>
         <label>
-          Semester (exact match)
-          <input
+          Semester
+          <select
             aria-label="Course semester filter"
             disabled={disabled}
-            maxLength={50}
             value={values.semester}
             onChange={(e) => set("semester", e.target.value)}
-            placeholder="e.g. First Semester"
-          />
+          >
+            <option value="">Any semester</option>
+            {semesterOptions.map((semester) => (
+              <option key={semester} value={semester}>
+                {semester === "first" ? "First" : "Second"}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Course title or description

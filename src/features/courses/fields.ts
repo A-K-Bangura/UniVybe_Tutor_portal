@@ -1,4 +1,5 @@
 import type { Field } from "../../shared/forms/SchemaForm";
+import { semesterOptions } from "../../shared/forms/semesters";
 import { contentLevelOptions } from "./levels";
 import {
   blockDefaults,
@@ -25,7 +26,11 @@ export const academic = [
     "500",
     "graduate",
   ]),
-  f("semester"),
+  {
+    ...f("semester", "select", false, semesterOptions),
+    nullable: true,
+    emptyLabel: "Not set",
+  },
 ];
 // Resources retain academic-year values; only courses and roadmaps allow general.
 export const contentAcademic: Field[] = academic.map((field) =>

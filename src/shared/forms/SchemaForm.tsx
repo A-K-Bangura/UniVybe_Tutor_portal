@@ -17,6 +17,7 @@ import { ErrorPanel, Modal, label } from "../ui/primitives";
 import { MediaField } from "../uploads/MediaField";
 import { useSession } from "../auth/session";
 import { AcademicModulePicker } from "../../features/academic-modules/Picker";
+import { semesterOptions } from "./semesters";
 const RichTextField = lazy(() => import("./RichTextField"));
 async function lookupAll(
   path: string,
@@ -145,6 +146,16 @@ export function SchemaForm({
               ctx.addIssue({
                 code: "custom",
                 message: `Use at most ${f.maxLength} characters.`,
+              });
+            if (
+              f.name === "semester" &&
+              value != null &&
+              value !== "" &&
+              !semesterOptions.includes(str(value))
+            )
+              ctx.addIssue({
+                code: "custom",
+                message: "Select first or second semester.",
               });
             if (
               f.required &&

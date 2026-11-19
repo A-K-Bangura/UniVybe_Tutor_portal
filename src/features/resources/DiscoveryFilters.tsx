@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { object, rows, str, request } from "../../shared/api/client";
 import { ErrorPanel } from "../../shared/ui/primitives";
 import { resourceLookup, type ResourceFiltersValue } from "./discovery";
+import { semesterOptions } from "../../shared/forms/semesters";
 
 export function DiscoveryFilters({
   values,
@@ -133,7 +134,6 @@ export function DiscoveryFilters({
               ["subject", "Subject", 150],
               ["module", "Module", 150],
               ["tags", "Tags (comma separated; all must match)", undefined],
-              ["semester", "Semester (exact match)", 50],
             ] as const
           ).map(([key, name, max]) => (
             <label key={key}>
@@ -147,6 +147,22 @@ export function DiscoveryFilters({
               />
             </label>
           ))}
+          <label>
+            Semester
+            <select
+              aria-label="Resource semester filter"
+              disabled={disabled}
+              value={values.semester}
+              onChange={(e) => set("semester", e.target.value)}
+            >
+              <option value="">Any semester</option>
+              {semesterOptions.map((semester) => (
+                <option key={semester} value={semester}>
+                  {semester === "first" ? "First" : "Second"}
+                </option>
+              ))}
+            </select>
+          </label>
           {(
             [
               ["university_id", "University", universities, true],

@@ -158,15 +158,26 @@ for (const kind of ["courses", "roadmaps"] as const) {
     else
       await page.getByLabel("Status *", { exact: true }).selectOption("draft");
     await page.getByLabel("Level", { exact: true }).selectOption("general");
+    const semester = page.getByLabel("Semester", { exact: true });
+    await expect(semester).toHaveRole("combobox");
+    await expect(semester.locator("option")).toHaveText([
+      "Not set",
+      "First",
+      "Second",
+    ]);
+    await semester.selectOption("first");
     await page
       .getByRole("button", { name: `Create ${singular}`, exact: true })
       .click();
     await expect(page).toHaveURL(new RegExp(`${kind}/content-1$`));
     expect(writes[0].level).toBe("general");
+    expect(writes[0].semester).toBe("first");
     await expect(page.getByLabel("Level", { exact: true })).toHaveValue(
       "general",
     );
     await page.reload();
+    await expect(semester).toHaveValue("first");
+    await semester.selectOption("second");
     await expect(page.getByLabel("Level", { exact: true })).toHaveValue(
       "general",
     );
@@ -175,17 +186,21 @@ for (const kind of ["courses", "roadmaps"] as const) {
       .getByRole("button", { name: "Save changes", exact: true })
       .click();
     await expect.poll(() => writes.at(-1)?.level).toBe("200");
+    expect(writes.at(-1)?.semester).toBe("second");
     await page.getByLabel("Level", { exact: true }).selectOption("general");
     await page
       .getByRole("button", { name: "Save changes", exact: true })
       .click();
     await expect.poll(() => writes.at(-1)?.level).toBe("general");
     await page.getByLabel("Level", { exact: true }).selectOption("");
+    await semester.selectOption("");
     await page
       .getByRole("button", { name: "Save changes", exact: true })
       .click();
     await expect.poll(() => writes.at(-1)?.level).toBeNull();
+    expect(writes.at(-1)?.semester).toBeNull();
     await page.reload();
+    await expect(semester).toHaveValue("");
     await expect(page.getByLabel("Level", { exact: true })).toHaveValue("");
     await expect(
       page.getByLabel("Level", { exact: true }).locator("option:checked"),
@@ -277,6 +292,13 @@ test("roadmap course picker offers general while resources and tutor lists keep 
   ).toBeVisible();
   expect(query?.get("level")).toBe("general");
   await page.goto("/resources/new");
+  const semester = page.getByLabel("Semester", { exact: true });
+  await expect(semester).toHaveRole("combobox");
+  await expect(semester.locator("option")).toHaveText([
+    "Not set",
+    "First",
+    "Second",
+  ]);
   await expect(
     page
       .getByLabel("Level", { exact: true })
