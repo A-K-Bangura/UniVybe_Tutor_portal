@@ -2,6 +2,7 @@ import {
   request,
   entity,
   page,
+  str,
   type RecordData,
 } from "../../shared/api/client";
 import type { Role } from "../../shared/auth/session";
@@ -34,18 +35,42 @@ export const list = async (
   role: Role,
   params: URLSearchParams,
   signal?: AbortSignal,
-) =>
-  kind === "academic-modules"
+) => {
+  const filters = new URLSearchParams(params);
+  const creator = filters.get("created_by");
+  if (
+    kind === "courses" &&
+    ["admin", "super_admin"].includes(role) &&
+    creator &&
+    !/^[1-9]\d*$/.test(creator)
+  ) {
+    // Auth profile IDs are UUIDs; the course filter requires the numeric ID.
+    const user = entity(
+      await request(
+        `admin/users/${encodeURIComponent(creator)}`,
+        "GET",
+        undefined,
+        signal,
+      ),
+      "user",
+    );
+    const id = str(user.id);
+    if (!/^[1-9]\d*$/.test(id))
+      throw new Error("Unable to resolve the course creator's numeric ID.");
+    filters.set("created_by", id);
+  }
+  return kind === "academic-modules"
     ? modulesPage(params, true, signal)
     : page(
         await request(
-          `${base(kind, role)}?${params}`,
+          `${base(kind, role)}?${filters}`,
           "GET",
           undefined,
           signal,
         ),
         kind === "feed" && !["admin", "super_admin"].includes(role),
       );
+};
 export const detail = async (
   kind: string,
   role: Role,

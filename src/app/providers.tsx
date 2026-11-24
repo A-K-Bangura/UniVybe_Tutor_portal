@@ -12,7 +12,9 @@ import {
 } from "../shared/api/client";
 import { configError } from "./config";
 import { ErrorPanel } from "../shared/ui/primitives";
+import { protectNumberInputsFromWheel } from "../shared/forms/number-wheel";
 export function Providers() {
+  useEffect(protectNumberInputsFromWheel, []);
   const bootstrap = useSession((s) => s.bootstrap);
   useEffect(() => {
     setInactiveHandler(() => {

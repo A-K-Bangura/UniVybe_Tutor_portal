@@ -1,8 +1,12 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-async function fixture(page: import("@playwright/test").Page, role: string) {
+async function fixture(
+  page: import("@playwright/test").Page,
+  role: string,
+  userId = "fixture-user",
+) {
   const user = {
-    id: "fixture-user",
+    id: userId,
     email: "fixture@example.test",
     firstname: "Amina",
     lastname: "Creator",
@@ -996,6 +1000,69 @@ test("roadmap institution and creator filters use verified keys and reset depend
     ),
   ).toBe(true);
 });
+
+for (const [role, path] of [
+  ["admin", "/courses"],
+  ["super_admin", "/reviews/courses"],
+] as const) {
+  test(`${role} can view their own courses across statuses and pages`, async ({
+    page,
+  }) => {
+    const uuid = "88078192-6996-4fb9-918c-1820de564231";
+    await fixture(page, role, uuid);
+    await page.route(`**/api/v1/admin/users/${uuid}`, (route) =>
+      route.fulfill({
+        json: { success: true, data: { user: { id: 42, uuid } } },
+      }),
+    );
+    const queries: URLSearchParams[] = [];
+    await page.route("**/api/v1/admin/courses?*", (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      if (params.has("created_by")) expect(params.get("created_by")).toBe("42");
+      queries.push(params);
+      return route.fulfill({
+        json: {
+          success: true,
+          data: [{ id: 1, title: "My draft course", status: "draft" }],
+          meta: {
+            current_page: Number(params.get("page") || 1),
+            last_page: 2,
+            total: 16,
+          },
+        },
+      });
+    });
+    await page.goto(`${path}?page=2&level=200`);
+    await expect
+      .poll(() => queries.at(-1)?.get("status"))
+      .toBe("pending_approval");
+    const mine = page.getByRole("button", { name: "My courses", exact: true });
+    await expect(mine).toHaveAttribute("aria-pressed", "false");
+    await mine.click();
+    await expect.poll(() => queries.at(-1)?.get("created_by")).toBe("42");
+    expect(queries.at(-1)?.has("status")).toBe(false);
+    expect(queries.at(-1)?.has("page")).toBe(false);
+    expect(queries.at(-1)?.get("level")).toBe("200");
+    await expect(mine).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByLabel("Filter by status")).toHaveValue("");
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await expect.poll(() => queries.at(-1)?.get("page")).toBe("2");
+    expect(queries.at(-1)?.get("created_by")).toBe("42");
+    await page.reload();
+    await expect(mine).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByLabel("Filter by status")).toHaveValue("");
+    await mine.click();
+    await expect.poll(() => queries.at(-1)?.has("created_by")).toBe(false);
+    expect(queries.at(-1)?.has("page")).toBe(false);
+    await mine.click();
+    await expect(mine).toHaveAttribute("aria-pressed", "true");
+    await page
+      .getByRole("button", { name: "Clear filters", exact: true })
+      .click();
+    await expect(mine).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => queries.at(-1)?.has("created_by")).toBe(false);
+  });
+}
 
 test("admin approval lists start pending without an initial all-status request", async ({
   page,

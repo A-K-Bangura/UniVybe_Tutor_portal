@@ -22,6 +22,7 @@ const GigsList = lazy(() => import("../features/gigs/List")),
   GigCategories = lazy(() => import("../features/gigs/Categories"));
 const Guidance = lazy(() => import("../features/guidance/Guidance"));
 const UserEditor = lazy(() => import("../features/users/UserEditor"));
+const PaidAccess = lazy(() => import("../features/paid-access/PaidAccess"));
 const Ambassadors = lazy(() => import("../features/ambassadors/Ambassadors"));
 function Guard({ area }: { area?: string }) {
   const s = useSession();
@@ -74,6 +75,20 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: "dashboard", element: <Dashboard /> },
+          {
+            element: <Guard area="paid-access" />,
+            children: [
+              "academic-periods",
+              "course-packs",
+              "course-pack-purchases",
+              "course-access",
+            ].flatMap((kind) => [
+              { path: kind, element: <PaidAccess kind={kind} /> },
+              ...(kind !== "course-access"
+                ? [{ path: `${kind}/:id`, element: <PaidAccess kind={kind} /> }]
+                : []),
+            ]),
+          },
           {
             element: <Guard area="ambassadors" />,
             children: [

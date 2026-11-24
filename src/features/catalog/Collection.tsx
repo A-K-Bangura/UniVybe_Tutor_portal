@@ -62,11 +62,15 @@ export default function Collection({
   review?: boolean;
 }) {
   const role = useSession((s) => s.user!.role.name),
+    userId = useSession((s) => str(s.user!.id)),
     [params, setParams] = useSearchParams(),
     [selection, setSelection] = useState<number[]>([]),
     [bulk, setBulk] = useState<string>();
   const p = new URLSearchParams(params);
   const people = kind === "users" && ["admin", "super_admin"].includes(role);
+  const adminCourses =
+    kind === "courses" && ["admin", "super_admin"].includes(role);
+  const myCourses = adminCourses && params.get("created_by") === userId;
   const userType =
     params.get("user_type") === "student" ? "student" : "creation_user";
   if (people) p.set("user_type", userType);
@@ -129,6 +133,25 @@ export default function Collection({
                 : "Your work, in one place. Create, refine, and keep things moving."
         }
       >
+        {adminCourses && (
+          <button
+            type="button"
+            className={myCourses ? "primary" : undefined}
+            aria-pressed={myCourses}
+            onClick={() => {
+              const next = new URLSearchParams(window.location.search);
+              if (myCourses) next.delete("created_by");
+              else {
+                next.set("created_by", userId);
+                next.set("status", "");
+              }
+              next.delete("page");
+              setParams(next);
+            }}
+          >
+            My courses
+          </button>
+        )}
         {people && role === "super_admin" && (
           <Link
             className="button"
@@ -322,6 +345,16 @@ export default function Collection({
             <Link className="button" to="/ambassadors">
               Campus ambassadors
             </Link>
+            {userType === "student" && (
+              <>
+                <Link className="button" to="/course-pack-purchases">
+                  Pack purchase filters
+                </Link>
+                <Link className="button" to="/course-access">
+                  Paid access filters
+                </Link>
+              </>
+            )}
           </div>
         )}
         {(academicFilters || people) && (

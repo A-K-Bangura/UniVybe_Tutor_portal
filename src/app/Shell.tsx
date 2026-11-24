@@ -44,6 +44,8 @@ const destinations = [
   ["reviews", "Review queues", ShieldCheck],
   ["roadmaps", "Roadmaps", Route],
   ["users", "People", Users],
+  ["academic-periods", "Academic periods", Building2],
+  ["course-packs", "Course packs", BookOpen],
   ["ambassadors", "Campus ambassadors", Users],
   ["universities", "Institutions", Building2],
   ["academic-modules", "Academic modules", BookOpen],

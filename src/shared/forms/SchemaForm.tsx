@@ -55,6 +55,7 @@ export interface Field {
     | "array"
     | "json"
     | "date"
+    | "datetime-local"
     | "url"
     | "richtext";
   // Fields that explicitly accept HTML use the rich editor.
@@ -81,18 +82,20 @@ export function serialize(fields: Field[], input: RecordData): RecordData {
     result[f.name] =
       f.type === "number" || (f.name.endsWith("_id") && f.type === "select")
         ? Number(value)
-        : f.type === "array"
-          ? typeof value === "string"
-            ? value
-                .split("\n")
-                .map((s) => s.trim())
-                .filter(Boolean)
-            : value
-          : f.type === "json"
+        : f.type === "datetime-local"
+          ? new Date(str(value)).toISOString()
+          : f.type === "array"
             ? typeof value === "string"
-              ? JSON.parse(value)
+              ? value
+                  .split("\n")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
               : value
-            : value;
+            : f.type === "json"
+              ? typeof value === "string"
+                ? JSON.parse(value)
+                : value
+              : value;
   }
   if (result.suggested_is_paid === false) {
     delete result.suggested_price;
@@ -100,6 +103,12 @@ export function serialize(fields: Field[], input: RecordData): RecordData {
   }
   if (result.is_paid === false) delete result.price;
   return result;
+}
+function localDateTime(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 export function SchemaForm({
   fields,
@@ -240,11 +249,13 @@ export function SchemaForm({
       f.name,
       f.type === "boolean"
         ? Boolean(initial[f.name])
-        : f.type === "array" && Array.isArray(initial[f.name])
-          ? (initial[f.name] as unknown[]).map(str).join("\n")
-          : f.type === "json" && typeof initial[f.name] === "object"
-            ? JSON.stringify(initial[f.name], null, 2)
-            : (initial[f.name] ?? ""),
+        : f.type === "datetime-local" && initial[f.name]
+          ? localDateTime(str(initial[f.name]))
+          : f.type === "array" && Array.isArray(initial[f.name])
+            ? (initial[f.name] as unknown[]).map(str).join("\n")
+            : f.type === "json" && typeof initial[f.name] === "object"
+              ? JSON.stringify(initial[f.name], null, 2)
+              : (initial[f.name] ?? ""),
     ]),
   );
   const form = useForm<RecordData>({
@@ -539,7 +550,13 @@ export function SchemaForm({
                 <input
                   id={`field-${f.name}`}
                   type={f.type === "url" ? "text" : f.type || "text"}
-                  step={f.type === "number" ? "any" : undefined}
+                  step={
+                    f.type === "datetime-local"
+                      ? 1
+                      : f.type === "number"
+                        ? "any"
+                        : undefined
+                  }
                   maxLength={f.maxLength}
                   {...form.register(f.name)}
                 />

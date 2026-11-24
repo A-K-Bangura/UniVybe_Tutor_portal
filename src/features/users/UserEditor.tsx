@@ -84,6 +84,22 @@ export default function UserEditor() {
         title={id ? str(target.full_name || target.email) : "Create user"}
       >
         <Badge value={target.status} />
+        {id && student && (
+          <>
+            <Link
+              className="button"
+              to={`/course-pack-purchases?student_id=${encodeURIComponent(str(target.id))}`}
+            >
+              Pack purchases
+            </Link>
+            <Link
+              className="button"
+              to={`/course-access?student_id=${encodeURIComponent(str(target.id))}`}
+            >
+              Course access
+            </Link>
+          </>
+        )}
         {id &&
           student &&
           ["admin", "super_admin"].includes(actor.role.name) && (

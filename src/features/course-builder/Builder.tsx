@@ -198,6 +198,9 @@ export function CourseBuilder({
             <button onClick={() => onAction("approve")}>Approve course</button>
             <button onClick={() => onAction("reject")}>Reject</button>
             <button onClick={() => onAction("pricing")}>Final pricing</button>
+            <button onClick={() => onAction("access-settings")}>
+              Access settings
+            </button>
             <button onClick={() => onAction("coin-reward")}>Coin reward</button>
           </>
         )}

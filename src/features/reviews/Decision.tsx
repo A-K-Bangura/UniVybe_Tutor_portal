@@ -48,6 +48,14 @@ export function Decision({
   }
   if (kind === "courses" && action === "coin-reward")
     fields.push(f("coin_reward", "number", true));
+  if (kind === "courses" && action === "access-settings") {
+    fields.splice(
+      0,
+      fields.length,
+      f("access_validity", "select", true, ["semester", "academic_year"]),
+      f("pack_eligible", "boolean"),
+    );
+  }
   if (action === "reopen")
     fields.push({
       ...f("application_deadline", "date"),
@@ -96,6 +104,8 @@ export function Decision({
         <SchemaForm
           fields={action === "delete" ? [] : fields}
           initial={{
+            access_validity: snapshot.access_validity || "semester",
+            pack_eligible: snapshot.pack_eligible !== false,
             is_paid:
               action === "approve" && !snapshot.pricing_approved_at
                 ? snapshot.suggested_is_paid
